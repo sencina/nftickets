@@ -11,6 +11,11 @@ const LockModule = buildModule("LockModule", (m) => {
     value: lockedAmount,
   });
 
+
+
+
+  
+
   return { lock };
 });
 
