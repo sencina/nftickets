@@ -18,7 +18,9 @@
   "lint-staged": {
     "ignition/**/*.{js,ts,tsx}": [
       "npm run lint",
-      "npm run format",
+      "npm run format"
+    ],
+    "contracts/**/*.sol": [
       "npm run sollint:solidity",
       "npm run prettier:solidity"
     ]
@@ -34,6 +36,9 @@
     "prettier-plugin-solidity": "^1.4.1",
     "solhint": "^5.0.3",
     "solhint-plugin-prettier": "^0.1.0",
-    "husky": "^8.0.0"
+    "husky": "^8.0.0",
+    "eslint": "^9.9.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1"
   }
 }
