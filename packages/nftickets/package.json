@@ -8,6 +8,11 @@
     "dev": "nodemon index.ts",
     "prepare": "cd .. && cd .. && husky install ./packages/nftickets/.husky"
   },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
