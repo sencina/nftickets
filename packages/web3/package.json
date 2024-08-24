@@ -6,7 +6,7 @@
         "test": "npx hardhat test",
         "sollint:solidity": "./node_modules/.bin/solhint -f table contracts/**/*.sol",
         "prettier:solidity": "./node_modules/.bin/prettier --write contracts/**/*.sol",
-        "lint": "echo \"lint\" && eslint --fix",
+        "lint": "eslint --fix",
         "format": "prettier --write \"ignition/**/*.ts\"",
         "prepare": "cd .. && cd .. && husky install ./packages/web3/.husky"
     },
@@ -16,7 +16,7 @@
     }
   },
   "lint-staged": {
-    "src/**/*.{js,ts,tsx}": [
+    "ignition/**/*.{js,ts,tsx}": [
       "npm run lint",
       "npm run format",
       "npm run sollint:solidity",
