@@ -3,7 +3,25 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "npx hardhat test",
+        "sollint:solidity": "./node_modules/.bin/solhint -f table contracts/**/*.sol",
+        "prettier:solidity": "./node_modules/.bin/prettier --write contracts/**/*.sol",
+        "lint": "eslint --fix",
+        "format": "prettier --write \"ignition/**/*.ts\"",
+        "prepare": "cd .. && cd .. && husky install ./packages/web3/.husky"
+    },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "src/**/*.{js,ts,tsx}": [
+      "npm run lint",
+      "npm run format",
+      "npm run sollint:solidity",
+      "npm run prettier:solidity"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -11,6 +29,11 @@
   "description": "",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "hardhat": "^2.22.9"
+    "hardhat": "^2.22.9",
+    "prettier": "^3.3.3",
+    "prettier-plugin-solidity": "^1.4.1",
+    "solhint": "^5.0.3",
+    "solhint-plugin-prettier": "^0.1.0",
+    "husky": "^8.0.0"
   }
 }
