@@ -1,6 +1,6 @@
-import canvas, { createCanvas, loadImage } from 'canvas';
+import canvas, { createCanvas } from 'canvas';
 import { IMAGE_HEIGHT, IMAGE_WIDTH, LAYER_DIR, OUTPUT_DIR } from './utils/constants';
-import { writeFileSync, existsSync } from 'fs';
+import { writeFileSync } from 'fs';
 import path from 'path';
 
 export const drawImage = async (nftID: string) => {
