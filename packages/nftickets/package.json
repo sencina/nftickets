@@ -37,12 +37,14 @@
     "fs": "0.0.1-security",
     "imagemin": "^8.0.1",
     "imagemin-pngquant": "^9.0.2",
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/imagemin": "^9.0.0",
+    "@types/qrcode": "^1.5.5",
     "eslint": "^9.9.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
