@@ -1,6 +1,7 @@
 import express, { Request, Response, Application } from 'express';
 import dotenv from 'dotenv';
 import { PORT } from './env';
+import { drawImage } from './modules/image';
 
 dotenv.config();
 
@@ -8,7 +9,7 @@ const app: Application = express();
 const port = PORT;
 
 app.get('/', (req: Request, res: Response) => {
-  res.send('Welcome to Express & TypeScript Server');
+  drawImage('1234').then(() => {});
 });
 
 app.listen(port, () => {
