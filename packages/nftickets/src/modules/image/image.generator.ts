@@ -1,10 +1,9 @@
 import canvas, { createCanvas, loadImage } from 'canvas';
-import { IMAGE_HEIGHT, IMAGE_WIDTH, LAYER_DIR, OUTPUT_DIR } from './utils/constants';
-import { writeFileSync } from 'fs';
+import { IMAGE_HEIGHT, IMAGE_WIDTH, LAYER_DIR } from './utils/constants';
 import path from 'path';
 import { toDataURL } from 'qrcode';
 
-export const drawImage = async (nftID: string) => {
+export const drawImage = async (eventName: string, type: string, nftId: string, url: string) => {
   const canvas = createCanvas(IMAGE_WIDTH, IMAGE_HEIGHT);
   const ctx = canvas.getContext('2d');
 
@@ -16,21 +15,20 @@ export const drawImage = async (nftID: string) => {
 
   await Promise.all(layers);
 
-  const qrCode = await generateQRCode();
+  const qrCode = await generateQRCode(url);
   const qr = await loadImage(qrCode);
   ctx.drawImage(qr, 75, 50, IMAGE_WIDTH - 150, IMAGE_HEIGHT - 150);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = '20px Nunito, sans-serif';
-  ctx.fillText(`Encigoool`, 120, 460);
+  ctx.fillText(`${eventName.toUpperCase()}-${type.toUpperCase()}-${nftId}`, 120, 460);
 
   const buffer = canvas.toBuffer('image/png');
-  const p = path.resolve(__dirname, `${OUTPUT_DIR}/test.png`);
-  writeFileSync(p, buffer);
+  return buffer;
 };
 
-const generateQRCode = async () => {
-  const qrCode = await toDataURL('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+const generateQRCode = async (url: string) => {
+  const qrCode = await toDataURL(url);
   return qrCode;
 };
 

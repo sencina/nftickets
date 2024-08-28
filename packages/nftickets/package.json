@@ -30,9 +30,11 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^5.18.0",
+    "@tatumio/tatum": "^4.2.40",
     "canvas": "^2.9.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
     "express": "^4.19.2",
     "fs": "0.0.1-security",
     "imagemin": "^8.0.1",
