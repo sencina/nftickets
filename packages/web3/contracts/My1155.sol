@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155URIStorage.sol";
 contract My1155 is ERC1155URIStorage {
     address public owner;
 
-    constructor(string memory uri) ERC1155("") {
-        owner = msg.sender;
+    constructor(string memory uri, address _owner) ERC1155("") {
+        owner = _owner;
         _mint(owner, 1, 1, ""); // Minting 1 token of ID 1 to the owner
         _setURI(1, uri);
     }
