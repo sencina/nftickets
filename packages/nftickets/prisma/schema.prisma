@@ -13,7 +13,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
+model Event {
+  id        String   @id @default(uuid())
   name      String
+  description String
+  address  String
+  hash      String?
 }

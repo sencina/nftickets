@@ -3,17 +3,24 @@ import { IMAGE_HEIGHT, IMAGE_WIDTH, LAYER_DIR } from './utils/constants';
 import path from 'path';
 import { toDataURL } from 'qrcode';
 
-export const drawImage = async (eventName: string, type: string, nftId: string, url: string) => {
+const generateQRCode = async (url: string) => {
+  const qrCode = await toDataURL(url);
+  return qrCode;
+};
+
+const addLayer = async (traitType: string, val: string, ctx: canvas.CanvasRenderingContext2D) => {
+  const p = path.resolve(__dirname, `${LAYER_DIR}/${traitType}/${val}.png`);
+  const img = await canvas.loadImage(p);
+  return ctx.drawImage(img, 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+};
+
+export const generateImage = async (eventName: string, type: string, nftId: string, url: string) => {
   const canvas = createCanvas(IMAGE_WIDTH, IMAGE_HEIGHT);
   const ctx = canvas.getContext('2d');
 
-  const layers = [];
-
   const bkgs = ['Background1', 'Background2', 'Background3'];
   const bkg = bkgs[Math.floor(Math.random() * bkgs.length)];
-  layers.push(addLayer('Backgrounds', bkg, ctx));
-
-  await Promise.all(layers);
+  await addLayer('Backgrounds', bkg, ctx);
 
   const qrCode = await generateQRCode(url);
   const qr = await loadImage(qrCode);
@@ -25,15 +32,4 @@ export const drawImage = async (eventName: string, type: string, nftId: string, 
 
   const buffer = canvas.toBuffer('image/png');
   return buffer;
-};
-
-const generateQRCode = async (url: string) => {
-  const qrCode = await toDataURL(url);
-  return qrCode;
-};
-
-const addLayer = async (traitType: string, val: string, ctx: canvas.CanvasRenderingContext2D) => {
-  const p = path.resolve(__dirname, `${LAYER_DIR}/${traitType}/${val}.png`);
-  const img = await canvas.loadImage(p);
-  ctx.drawImage(img, 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
 };
