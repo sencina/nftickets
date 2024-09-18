@@ -6,7 +6,8 @@ const eventService = new EventService();
 
 eventRouter.post('/', async (req, res, next) => {
   try {
-    await eventService.create();
+    const event = await eventService.create();
+    res.status(201).json(event);
   } catch (error) {
     next(error);
   }
