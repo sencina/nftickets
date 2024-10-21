@@ -2,7 +2,7 @@ import { TatumSDK, Network, Polygon } from '@tatumio/tatum';
 import { TATUM_API_KEY } from '../../env';
 import { BUCKET_URL } from './utils/constants';
 
-export const uplaodMetadata = async (metadata: Record<string, string | number>, imageBuffer: Buffer) => {
+export const uploadMetadata = async (metadata: Record<string, string | number>, imageBuffer: Buffer) => {
   const tatumClient = await TatumSDK.init<Polygon>({
     network: Network.POLYGON,
     verbose: true,
@@ -16,6 +16,24 @@ export const uplaodMetadata = async (metadata: Record<string, string | number>, 
   const metadataToUpload = { ...metadata, image: BUCKET_URL(imageHash) };
 
   const nftBuffer = Buffer.from(JSON.stringify(metadataToUpload), 'utf-8');
+
+  const metadataHash = await uploadFile(nftBuffer, tatumClient);
+
+  await tatumClient.destroy();
+
+  return metadataHash;
+};
+
+export const uploadJsonMetadata = async (metadata: Record<string, string | number>) => {
+  const tatumClient = await TatumSDK.init<Polygon>({
+    network: Network.POLYGON,
+    verbose: true,
+    apiKey: {
+      v4: TATUM_API_KEY,
+    },
+  });
+
+  const nftBuffer = Buffer.from(JSON.stringify(metadata), 'utf-8');
 
   const metadataHash = await uploadFile(nftBuffer, tatumClient);
 
