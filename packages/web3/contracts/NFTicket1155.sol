@@ -9,6 +9,7 @@ contract NFTicket1155 is ERC1155URIStorage {
     mapping(uint256 => string) sectors;
     mapping(uint256 => uint256) capacities;
     mapping(uint256 => uint256) public ticketsIssuedBySector;
+    mapping(uint256 => uint256) public tokenIdToSectorId; 
 
     event TokenMinted(uint256 indexed id, address indexed account, uint256 amount);
 
@@ -45,13 +46,20 @@ contract NFTicket1155 is ERC1155URIStorage {
         // Set the token metadata URI directly
         _setURI(tokenId, metadataURI);
         
+        // Store the mapping from tokenId to sectorId
+        tokenIdToSectorId[tokenId] = sector;
+        
         ticketsIssuedBySector[sector] += amount;
         emit TokenMinted(tokenId, account, amount);
         currentId++;
     }
 
-    function authenticate(address sender, uint256 sector) public view returns (bool) {
-        return balanceOf(sender, sector) > 0;
+    function authenticate(address sender, uint256 tokenId) public view returns (bool) {
+        // Get the sector ID associated with this token ID
+        uint256 sectorId = tokenIdToSectorId[tokenId];
+        
+        // Check if the sender owns tokens for this sector
+        return balanceOf(sender, sectorId) > 0;
     }
     
     // Returns the URI pointing to the token's metadata JSON

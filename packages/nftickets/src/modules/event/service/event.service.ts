@@ -17,6 +17,7 @@ import { createTicketRepository } from '@modules/ticket/repository/ticket.reposi
 import { ITicketRepository } from '@modules/ticket/repository/ticket.repository.interface';
 import { createSectorRepository } from '@modules/sector/repository/sector.repository.factory';
 import { ISectorRepository } from '@modules/sector/repository/sector.repository.interface';
+import { VERIFICATION_URL } from '../utils/constants';
 
 export class EventService {
   private deployer: Deployer;
@@ -97,8 +98,14 @@ export class EventService {
 
     const eventName = event.name;
 
-    // Use authentication endpoint for verification
-    const verificationUrl = `${urlMetadata.protocol}://${urlMetadata.host}/api/event/verify/${eventId}/${walletAddress}/${contractSectorId}`;
+    // Use the VERIFICATION_URL function to generate the URL
+    const verificationUrl = VERIFICATION_URL(
+      urlMetadata.protocol,
+      urlMetadata.host,
+      eventId,
+      walletAddress,
+      contractSectorId
+    );
 
     const ticketImage = await generateImage(eventName, sectorName, contractSectorId.toString(), verificationUrl);
 
@@ -138,7 +145,7 @@ export class EventService {
     });
 
     return {
-      tokenId: contractSectorId,
+      tokenId: Number(currentTokenId),
       address: eventAddress,
       ticketId: ticket.id,
     };
