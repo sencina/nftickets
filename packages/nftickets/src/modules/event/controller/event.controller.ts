@@ -12,22 +12,25 @@ const service = createEventService();
 
 eventRouter.post('/', BodyValidation(CreateEventDTO), async (req, res) => {
   const event: CreateEventDTO = req.body;
-  const host = req.get('host');
-  const protocol = req.protocol;
-  const tokenId = await service.create(event, host!, protocol);
-  res.status(httpStatus.CREATED).json(tokenId);
+  const createdEvent = await service.create(event);
+  res.status(httpStatus.CREATED).json(createdEvent);
 });
 
 eventRouter.post('/issue-ticket', BodyValidation(IssueTicketDTO), async (req, res) => {
   const { walletAddress, eventAddress, sectorId } = req.body;
-  const { tokenId } = await service.issueTicket(walletAddress, eventAddress, sectorId);
+  const host = req.get('host');
+  const protocol = req.protocol;
+  const urlMetadata = {
+    host: host!,
+    protocol,
+  };
+  const { tokenId } = await service.issueTicket(walletAddress, eventAddress, sectorId, urlMetadata);
   res.status(httpStatus.CREATED).json({ tokenId });
 });
 
 eventRouter.get('/:address/:sector', async (req, res) => {
   const { address, sector } = req.params;
   const { isAuthenticated } = await service.authenticate(address, sector);
-
   const templateData = {
     title: isAuthenticated ? 'Verification Successful' : 'Verification Failed',
     titleColor: isAuthenticated ? '#0ef' : '#ff3860',
