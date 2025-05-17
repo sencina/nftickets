@@ -1,4 +1,14 @@
-import { IsNotEmpty, IsNumber, IsPositive, IsString, IsOptional, IsUUID, IsDate, IsArray } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsDate,
+  IsArray,
+  IsEthereumAddress,
+} from 'class-validator';
 
 export class IssueTicketDTO {
   @IsString()
@@ -42,6 +52,26 @@ export class MintTicketDTO {
     this.sectorId = sectorId;
     this.amount = amount;
     this.metadataURI = metadataURI;
+  }
+}
+
+export class GenerateQRDTO {
+  @IsNotEmpty()
+  @IsEthereumAddress()
+  walletAddress: string;
+
+  @IsNotEmpty()
+  @IsUUID()
+  eventId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  sectorName: string;
+
+  constructor(walletAddress: string, eventId: string, sectorName: string) {
+    this.walletAddress = walletAddress;
+    this.eventId = eventId;
+    this.sectorName = sectorName;
   }
 }
 

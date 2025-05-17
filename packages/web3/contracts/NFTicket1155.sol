@@ -58,4 +58,9 @@ contract NFTicket1155 is ERC1155URIStorage {
     function getTokenURI(uint256 tokenId) public view returns (string memory) {
         return uri(tokenId);
     }
+    
+    // Returns the current token ID
+    function getCurrentId() public view returns (uint256) {
+        return currentId;
+    }
 }

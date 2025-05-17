@@ -23,6 +23,8 @@ RUN npm install
 # Copy the rest of the application code to the container
 COPY . .
 
+RUN npm run db:generate
+
 # Build the project (assuming you have a build script in your package.json)
 RUN npm run build
 
