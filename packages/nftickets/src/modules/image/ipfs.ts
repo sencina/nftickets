@@ -2,7 +2,7 @@ import { TatumSDK, Network, Polygon } from '@tatumio/tatum';
 import { TATUM_API_KEY } from '../../env';
 import { BUCKET_URL } from './utils/constants';
 
-export const uploadMetadata = async (metadata: Record<string, string | number>, imageBuffer: Buffer) => {
+export const uploadMetadata = async (metadata: Record<string, string | number>, imageBuffer?: Buffer) => {
   const tatumClient = await TatumSDK.init<Polygon>({
     network: Network.POLYGON,
     verbose: true,
@@ -11,7 +11,7 @@ export const uploadMetadata = async (metadata: Record<string, string | number>, 
     },
   });
 
-  const imageHash = await uploadFile(imageBuffer, tatumClient);
+  const imageHash = imageBuffer ? await uploadFile(imageBuffer, tatumClient) : '';
 
   const metadataToUpload = { ...metadata, image: BUCKET_URL(imageHash) };
 

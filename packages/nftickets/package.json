@@ -11,7 +11,8 @@
     "prepare": "cd .. && cd .. && husky install ./packages/nftickets/.husky",
     "db:migrate": "prisma migrate deploy",
     "db:make-migrations": "prisma migrate dev",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "update-artifacts": "ts-node src/scripts/update-artifacts.ts"
   },
   "husky": {
     "hooks": {
@@ -31,7 +32,7 @@
   "dependencies": {
     "@prisma/client": "^5.18.0",
     "@tatumio/tatum": "^4.2.40",
-    "canvas": "^2.9.0",
+    "canvas": "^2.11.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cookie-parser": "^1.4.6",

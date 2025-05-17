@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Authentication Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+      
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+        background: linear-gradient(135deg, #F2F6FF 0%, #E5E9F0 100%);
+        color: #000000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        padding: 16px;
+        transition: background 0.5s ease;
+      }
+      
+      .container {
+        width: 100%;
+        max-width: 380px;
+        text-align: center;
+        padding: 32px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        animation: fadeIn 0.6s ease-out;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      
+      .container:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+      }
+      
+      h1 {
+        color: #000000;
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 24px;
+        letter-spacing: -0.5px;
+        animation: slideDown 0.8s ease-out;
+      }
+      
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        text-align: left;
+        animation: slideRight 0.6s ease-out both;
+      }
+      
+      .info-row:nth-child(3) {
+        animation-delay: 0.1s;
+      }
+      
+      .info-row:nth-child(4) {
+        animation-delay: 0.2s;
+      }
+      
+      .info-row:last-child {
+        border-bottom: none;
+      }
+      
+      .label {
+        color: #8E8E93;
+        font-size: 16px;
+        font-weight: 500;
+        transition: color 0.3s ease;
+      }
+      
+      .value {
+        font-size: 16px;
+        font-weight: 500;
+        color: #000000;
+        max-width: 60%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: transform 0.3s ease;
+      }
+      
+      .info-row:hover .value {
+        transform: scale(1.05);
+      }
+      
+      .status-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #34C759;
+        margin: 0 auto 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 32px;
+        animation: pulse 2s infinite, spinIn 1s ease-out;
+      }
+      
+      .token-id {
+        color: #007AFF;
+        font-weight: 600;
+        position: relative;
+        transition: color 0.3s ease;
+      }
+      
+      .token-id:hover {
+        color: #0056b3;
+      }
+      
+      .status-message {
+        margin-top: 24px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        background: rgba(52, 199, 89, 0.1);
+        color: #34C759;
+        font-weight: 500;
+        animation: expandIn 0.8s ease-out;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+      }
+      
+      .status-message:hover {
+        transform: scale(1.02);
+        background: rgba(52, 199, 89, 0.15);
+      }
+      
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: linear-gradient(135deg, #1A1A1A 0%, #0F0F0F 100%);
+        }
+        
+        .container {
+          background: rgba(30, 30, 30, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+          color: #FFFFFF;
+        }
+        
+        .value {
+          color: #FFFFFF;
+        }
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(52, 199, 89, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); }
+      }
+      
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      @keyframes slideRight {
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      
+      @keyframes spinIn {
+        from { transform: rotate(-180deg) scale(0.5); opacity: 0; }
+        to { transform: rotate(0deg) scale(1); opacity: 1; }
+      }
+      
+      @keyframes expandIn {
+        from { opacity: 0; transform: scale(0.8); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      
+      /* Interactive ripple effect */
+      .ripple {
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .ripple:after {
+        content: "";
+        display: block;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+        background-repeat: no-repeat;
+        background-position: 50%;
+        transform: scale(10, 10);
+        opacity: 0;
+        transition: transform .5s, opacity 1s;
+      }
+      
+      .ripple:active:after {
+        transform: scale(0, 0);
+        opacity: .3;
+        transition: 0s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="status-icon">✓</div>
+      <h1>{{title}}</h1>
+      
+      <div class="info-row">
+        <span class="label">Address</span>
+        <span class="value ripple">{{address}}</span>
+      </div>
+      
+      <div class="info-row">
+        <span class="label">Token ID</span>
+        <span class="value token-id ripple">{{tokenId}}</span>
+      </div>
+      
+      <div class="status-message ripple">
+        {{statusMessage}}
+      </div>
+    </div>
+    
+    <script>
+      // Add interactive ripple effect
+      document.querySelectorAll('.ripple').forEach(element => {
+        element.addEventListener('click', function(e) {
+          const ripple = document.createElement('span');
+          ripple.classList.add('ripple-effect');
+          
+          const rect = this.getBoundingClientRect();
+          const size = Math.max(rect.width, rect.height);
+          
+          ripple.style.width = ripple.style.height = size + 'px';
+          ripple.style.left = e.clientX - rect.left - size/2 + 'px';
+          ripple.style.top = e.clientY - rect.top - size/2 + 'px';
+          
+          this.appendChild(ripple);
+          
+          setTimeout(() => {
+            ripple.remove();
+          }, 600);
+        });
+      });
+      
+      // Add subtle floating animation to container
+      let floatDir = 1;
+      const container = document.querySelector('.container');
+      
+      function floatAnimation() {
+        let y = parseFloat(getComputedStyle(container).getPropertyValue('transform').split(',')[5]) || 0;
+        if (y > 5) floatDir = -1;
+        if (y < -5) floatDir = 1;
+        
+        container.style.transform = `translateY(${y + 0.2 * floatDir}px)`;
+        requestAnimationFrame(floatAnimation);
+      }
+      
+      // Start the float animation after initial animations complete
+      setTimeout(() => {
+        floatAnimation();
+      }, 1000);
+    </script>
+  </body>
+</html> 
