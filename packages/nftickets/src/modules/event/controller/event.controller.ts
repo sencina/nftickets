@@ -17,27 +17,27 @@ eventRouter.post('/', BodyValidation(CreateEventDTO), async (req, res) => {
 });
 
 eventRouter.post('/issue-ticket', BodyValidation(IssueTicketDTO), async (req, res) => {
-  const { walletAddress, eventAddress, sectorId } = req.body;
+  const { walletAddress, eventId, sectorName } = req.body;
   const host = req.get('host');
   const protocol = req.protocol;
   const urlMetadata = {
     host: host!,
     protocol,
   };
-  const { tokenId } = await service.issueTicket(walletAddress, eventAddress, sectorId, urlMetadata);
-  res.status(httpStatus.CREATED).json({ tokenId });
+  const { tokenId, address } = await service.issueTicket(walletAddress, eventId, sectorName, urlMetadata);
+  res.status(httpStatus.CREATED).json({ tokenId, address });
 });
 
-eventRouter.get('/:address/:sector', async (req, res) => {
-  const { address, sector } = req.params;
-  const { isAuthenticated } = await service.authenticate(address, sector);
+eventRouter.get('/:eventId/:sectorName', async (req, res) => {
+  const { eventId, sectorName } = req.params;
+  const { isAuthenticated } = await service.authenticate(eventId, sectorName);
   const templateData = {
     title: isAuthenticated ? 'Verification Successful' : 'Verification Failed',
     titleColor: isAuthenticated ? '#0ef' : '#ff3860',
     statusColor: isAuthenticated ? '#0ef' : '#ff3860',
-    address,
-    tokenId: sector,
-    statusMessage: isAuthenticated ? 'The address is verified!' : 'Verification failed.',
+    eventId,
+    sectorName,
+    statusMessage: isAuthenticated ? 'The ticket is verified!' : 'Verification failed.',
   };
 
   const htmlResponse = renderTemplate(

@@ -4,17 +4,16 @@ export class IssueTicketDTO {
   @IsString()
   walletAddress: string;
 
+  @IsUUID()
+  eventId: string;
+
   @IsString()
-  eventAddress: string;
+  sectorName: string;
 
-  @IsNumber()
-  @IsPositive()
-  sectorId: number;
-
-  constructor(walletAddress: string, eventAddress: string, sectorId: number) {
+  constructor(walletAddress: string, eventId: string, sectorName: string) {
     this.walletAddress = walletAddress;
-    this.eventAddress = eventAddress;
-    this.sectorId = sectorId;
+    this.eventId = eventId;
+    this.sectorName = sectorName;
   }
 }
 

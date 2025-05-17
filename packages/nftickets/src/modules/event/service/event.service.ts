@@ -11,6 +11,7 @@ import { ContractConfig } from '@modules/nft/config/contracts.config';
 import { toUtf8Bytes } from 'ethers';
 import { IEventRepository } from '../repository/event.repository.interface';
 import { createEventRepository } from '../repository/event.repository.factory';
+import { NotFoundException } from '@utils';
 
 export class EventService {
   private deployer: Deployer;
@@ -59,30 +60,41 @@ export class EventService {
 
   async issueTicket(
     walletAddress: string,
-    eventAddress: string,
-    sectorId: number,
+    eventId: string,
+    sectorName: string,
     urlMetadata: { host: string; protocol: string }
-  ): Promise<{ tokenId: number }> {
+  ): Promise<{ tokenId: number; address: string }> {
+    const event = await this.repository.findById(eventId);
+    if (!event) {
+      throw new NotFoundException(eventId);
+    }
+
+    const sector = event.sectors?.find((s) => s.name === sectorName);
+    if (!sector) {
+      throw new NotFoundException(sectorName);
+    }
+
+    const eventAddress = event.address;
+    const contractSectorId = sector.contractSectorId;
+
+    if (contractSectorId === undefined) {
+      throw new NotFoundException(sectorName);
+    }
+
     const contract = this.getContract(eventAddress);
 
-    const sectorName = await contract.getSectorName(sectorId);
+    const eventName = event.name;
 
-    // Get event URI (metadata)
-    const eventURI = await contract.uri(0);
-    const eventMetadata = await fetch(eventURI).then((res) => res.json());
-    const eventName = eventMetadata.name || 'Event';
+    const verificationUrl = `${urlMetadata.protocol}://${urlMetadata.host}/event/${eventId}/${sectorName}`;
 
-    const verificationUrl = `${urlMetadata.protocol}://${urlMetadata.host}/event/${eventAddress}/${sectorId}`;
+    const ticketImage = await generateImage(eventName, sectorName, contractSectorId.toString(), verificationUrl);
 
-    const ticketImage = await generateImage(eventName, sectorName, sectorId.toString(), verificationUrl);
-
-    // Upload image and metadata to IPFS
     const tokenMetadataHash = await uploadMetadata(
       {
         name: `${eventName} - ${sectorName}`,
         description: `Ticket for ${eventName}, sector ${sectorName}`,
         sector: sectorName,
-        sectorId: sectorId,
+        sectorId: contractSectorId,
         eventAddress: eventAddress,
       },
       ticketImage
@@ -91,29 +103,40 @@ export class EventService {
     const mintData: MintTicketDTO = {
       walletAddress,
       eventAddress,
-      sectorId,
+      sectorId: contractSectorId,
       amount: 1,
       metadataURI: BUCKET_URL(tokenMetadataHash),
     };
 
     await this.mintTicket(mintData);
-    return { tokenId: sectorId };
+    return { tokenId: contractSectorId, address: eventAddress };
   }
 
   private async mintTicket(mintData: MintTicketDTO): Promise<{ transactionHash: string }> {
     const contract = this.getContract(mintData.eventAddress);
-    const data = mintData.metadataURI ? toUtf8Bytes(mintData.metadataURI) : '0x';
-    const tx = await contract.mint(mintData.walletAddress, mintData.sectorId, mintData.amount, data);
+    const tx = await contract.mint(
+      mintData.walletAddress,
+      mintData.sectorId,
+      mintData.amount,
+      mintData.metadataURI || '',
+      '0x' // Empty bytes for data parameter
+    );
     const receipt = await tx.wait();
     return { transactionHash: receipt.hash };
   }
 
-  async authenticate(address: string, sectorId: string): Promise<{ isAuthenticated: boolean }> {
+  async authenticate(eventId: string, sectorName: string): Promise<{ isAuthenticated: boolean }> {
     try {
-      // Get event from database by address
-      const event = await this.repository.findById(address);
+      // Get event from database by ID
+      const event = await this.repository.findById(eventId);
 
       if (!event) {
+        return { isAuthenticated: false };
+      }
+
+      // Find the sector by name
+      const sector = event.sectors?.find((s) => s.name === sectorName);
+      if (!sector) {
         return { isAuthenticated: false };
       }
 
