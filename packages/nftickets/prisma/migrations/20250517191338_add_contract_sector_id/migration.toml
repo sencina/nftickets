@@ -1,0 +1,6 @@
+# This file marks the migration as applied
+# https://www.prisma.io/docs/concepts/components/prisma-migrate/migration-engine
+
+[migration]
+name = "20250517191338_add_contract_sector_id"
+provider = "postgresql" 

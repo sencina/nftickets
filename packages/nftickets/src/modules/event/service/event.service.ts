@@ -41,8 +41,15 @@ export class EventService {
       event.sectors.map((sector) => sector.capacity)
     );
 
+    // Add contract sector ID (index) to each sector
+    const sectorsWithIds = event.sectors.map((sector, index) => ({
+      ...sector,
+      contractSectorId: index,
+    }));
+
     const createdEvent = await this.repository.create({
       ...event,
+      sectors: sectorsWithIds,
       address,
       metadata_hash: hash,
     });
@@ -56,10 +63,8 @@ export class EventService {
     sectorId: number,
     urlMetadata: { host: string; protocol: string }
   ): Promise<{ tokenId: number }> {
-    // Get event information for ticket image
     const contract = this.getContract(eventAddress);
 
-    // Get sector name
     const sectorName = await contract.getSectorName(sectorId);
 
     // Get event URI (metadata)

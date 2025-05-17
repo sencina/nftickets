@@ -96,10 +96,15 @@ export class SectorDTO {
   @IsOptional()
   description?: string;
 
-  constructor(name: string, capacity: number, description?: string) {
+  @IsNumber()
+  @IsOptional()
+  contractSectorId?: number;
+
+  constructor(name: string, capacity: number, description?: string, contractSectorId?: number) {
     this.name = name;
     this.capacity = capacity;
     this.description = description;
+    this.contractSectorId = contractSectorId;
   }
 }
 
@@ -168,7 +173,7 @@ export class EventDTO {
       event.start_date,
       event.end_date,
       includeSectors && event.sectors
-        ? event.sectors.map((s: any) => new SectorDTO(s.name, s.capacity, s.description))
+        ? event.sectors.map((s: any) => new SectorDTO(s.name, s.capacity, s.description, s.contract_sector_id))
         : undefined
     );
   }

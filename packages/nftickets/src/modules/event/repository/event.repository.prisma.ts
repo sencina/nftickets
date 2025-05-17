@@ -30,8 +30,8 @@ export class PrismaEventRepository implements IEventRepository {
         data.sectors.map(async (sectorDto: SectorDTO) => {
           // For each sector, create it with a relationship to the event
           await this.prisma.$executeRaw`
-            INSERT INTO "Sector" (id, event_id, name, description, capacity, created_at)
-            VALUES (gen_random_uuid(), ${createdEvent.id}::uuid, ${sectorDto.name}, ${sectorDto.description || sectorDto.name}, ${sectorDto.capacity || 0}, now())
+            INSERT INTO "Sector" (id, event_id, name, description, capacity, contract_sector_id, created_at)
+            VALUES (gen_random_uuid(), ${createdEvent.id}::uuid, ${sectorDto.name}, ${sectorDto.description || sectorDto.name}, ${sectorDto.capacity || 0}, ${sectorDto.contractSectorId || 0}, now())
           `;
         })
       );
@@ -57,7 +57,7 @@ export class PrismaEventRepository implements IEventRepository {
     const eventsWithSectors = await Promise.all(
       events.map(async (event) => {
         const sectors = await this.prisma.$queryRaw`
-          SELECT id, event_id, name, description, capacity, created_at
+          SELECT id, event_id, name, description, capacity, contract_sector_id, created_at
           FROM "Sector"
           WHERE event_id = ${event.id}::uuid
         `;
@@ -82,7 +82,7 @@ export class PrismaEventRepository implements IEventRepository {
 
     // Get sectors with raw query
     const sectors = await this.prisma.$queryRaw`
-      SELECT id, event_id, name, description, capacity, created_at
+      SELECT id, event_id, name, description, capacity, contract_sector_id, created_at
       FROM "Sector"
       WHERE event_id = ${id}::uuid
     `;
@@ -105,7 +105,7 @@ export class PrismaEventRepository implements IEventRepository {
 
     // Get sectors with raw query
     const sectors = await this.prisma.$queryRaw`
-      SELECT id, event_id, name, description, capacity, created_at
+      SELECT id, event_id, name, description, capacity, contract_sector_id, created_at
       FROM "Sector"
       WHERE event_id = ${id}::uuid
     `;
