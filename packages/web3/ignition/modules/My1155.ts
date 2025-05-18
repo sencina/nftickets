@@ -28,7 +28,8 @@ const main = async () => {
   const vipMetadataURI = `ipfs://bafkreict6kqmy5jlhg6zekrwfpweore44k2qhvxtdvo7nlhpiqccbimaba`; // Individual token metadata
   const data = ethers.toUtf8Bytes(''); // Empty data
   
-  const vipMintTx = await nfTicketContract.mint(
+  // Use the mintWithAmount method which is the renamed original mint function
+  const vipMintTx = await nfTicketContract.mintWithAmount(
     owner.address,
     vipSectorId,
     vipAmount,
@@ -39,12 +40,25 @@ const main = async () => {
   await vipMintTx.wait();
   console.log(`Minted ${vipAmount} tokens in sector ${sectors[vipSectorId]} to ${owner.address}`);
   
+  // Or use the standard mint function from the NFTicket interface (which will mint 1 token)
+  const backStageSectorId = 2; // Backstage sector
+  const backstageMetadataURI = `ipfs://bafkreiccparztqw5li6osq6ikcvllijutaoaiih6lmthiabnwnkgy66mnq`;
+  
+  const backstageMintTx = await nfTicketContract.mint(
+    owner.address,
+    backStageSectorId,
+    backstageMetadataURI
+  );
+  
+  await backstageMintTx.wait();
+  console.log(`Minted 1 token in sector ${sectors[backStageSectorId]} to ${owner.address}`);
+  
   // Mint 10 General tickets (sector 1) to the owner
   const generalSectorId = 1; // General sector
   const generalAmount = 10;
   const generalMetadataURI = `ipfs://bafkreiccparztqw5li6osq6ikcvllijutaoaiih6lmthiabnwnkgy66mnq`; // Using another metadata URI for simplicity
   
-  const generalMintTx = await nfTicketContract.mint(
+  const generalMintTx = await nfTicketContract.mintWithAmount(
     owner.address,
     generalSectorId,
     generalAmount,
@@ -62,12 +76,18 @@ const main = async () => {
   const generalBalance = await nfTicketContract.balanceOf(owner.address, generalSectorId);
   console.log(`Balance of ${owner.address} for sector ${sectors[generalSectorId]}: ${generalBalance}`);
   
-  // Verify authentication for both sectors
+  const backstageBalance = await nfTicketContract.balanceOf(owner.address, backStageSectorId);
+  console.log(`Balance of ${owner.address} for sector ${sectors[backStageSectorId]}: ${backstageBalance}`);
+  
+  // Verify authentication for all sectors
   const isAuthenticatedVip = await nfTicketContract.authenticate(owner.address, vipSectorId);
   console.log(`Is authenticated for sector ${sectors[vipSectorId]}: ${isAuthenticatedVip}`);
   
   const isAuthenticatedGeneral = await nfTicketContract.authenticate(owner.address, generalSectorId);
   console.log(`Is authenticated for sector ${sectors[generalSectorId]}: ${isAuthenticatedGeneral}`);
+  
+  const isAuthenticatedBackstage = await nfTicketContract.authenticate(owner.address, backStageSectorId);
+  console.log(`Is authenticated for sector ${sectors[backStageSectorId]}: ${isAuthenticatedBackstage}`);
 };
 
 main()
