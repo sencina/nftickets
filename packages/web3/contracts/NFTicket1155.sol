@@ -2,16 +2,15 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155URIStorage.sol";
+import "./INFTicket.sol";
 
-contract NFTicket1155 is ERC1155URIStorage {
+contract NFTicket1155 is ERC1155URIStorage, NFTicket {
     address public owner;
     uint256 public currentId;
     mapping(uint256 => string) sectors;
     mapping(uint256 => uint256) capacities;
     mapping(uint256 => uint256) public ticketsIssuedBySector;
     mapping(uint256 => uint256) public tokenIdToSectorId; 
-
-    event TokenMinted(uint256 indexed id, address indexed account, uint256 amount);
 
     constructor(string memory _uri, string[] memory _sectors, uint256[] memory _capacity) ERC1155(_uri) {
         owner = msg.sender;
@@ -28,8 +27,20 @@ contract NFTicket1155 is ERC1155URIStorage {
         _setBaseURI(newuri);
     }
 
-    // This function mints tokens and sets the token metadata URI
+    /**
+     * @dev Implements the NFTicket interface mint function
+     */
     function mint(
+        address account,
+        uint256 sector,
+        string memory metadataURI
+    ) public {
+        // Default to minting 1 token with empty bytes as data
+        mintWithAmount(account, sector, 1, metadataURI, "");
+    }
+
+    // This is the original mint function, renamed to mintWithAmount
+    function mintWithAmount(
         address account, 
         uint256 sector, 
         uint256 amount, 
@@ -50,7 +61,7 @@ contract NFTicket1155 is ERC1155URIStorage {
         tokenIdToSectorId[tokenId] = sector;
         
         ticketsIssuedBySector[sector] += amount;
-        emit TokenMinted(tokenId, account, amount);
+        emit TokenMinted(tokenId, account, sector);
         currentId++;
     }
 

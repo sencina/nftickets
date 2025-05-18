@@ -1,3 +1,4 @@
+import { DEFAULT_CONTRACT } from '@modules/nft/config/contracts.config';
 import {
   IsNotEmpty,
   IsNumber,
@@ -107,7 +108,7 @@ export class CreateEventDTO {
     this.name = name;
     this.description = description;
     this.sectors = sectors;
-    this.contractType = contractType || 'NFTicket1155';
+    this.contractType = contractType || DEFAULT_CONTRACT;
     this.address = address;
     this.metadata_hash = metadata_hash;
   }
@@ -153,6 +154,10 @@ export class EventDTO {
   @IsString()
   metadata_hash: string;
 
+  @IsString()
+  @IsOptional()
+  contractType?: string;
+
   @IsDate()
   @IsOptional()
   start_date?: Date;
@@ -177,7 +182,8 @@ export class EventDTO {
     created_at: Date,
     start_date?: Date,
     end_date?: Date,
-    sectors?: SectorDTO[]
+    sectors?: SectorDTO[],
+    contractType?: string
   ) {
     this.id = id;
     this.name = name;
@@ -188,6 +194,7 @@ export class EventDTO {
     this.start_date = start_date;
     this.end_date = end_date;
     this.sectors = sectors;
+    this.contractType = contractType || DEFAULT_CONTRACT;
   }
 
   // Factory method to create EventDTO from entity
@@ -203,7 +210,8 @@ export class EventDTO {
       event.end_date,
       includeSectors && event.sectors
         ? event.sectors.map((s: any) => new SectorDTO(s.name, s.capacity, s.description, s.contract_sector_id))
-        : undefined
+        : undefined,
+      event.contract_type
     );
   }
 }

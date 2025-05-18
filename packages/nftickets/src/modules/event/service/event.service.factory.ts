@@ -1,5 +1,5 @@
 import { EventService } from './event.service';
-import { getContractConfig, ContractConfig } from '@modules/nft/config/contracts.config';
+import { getContractConfig, ContractConfig, DEFAULT_CONTRACT } from '@modules/nft/config/contracts.config';
 
 /**
  * Factory function to create an EventService with a specific contract configuration
@@ -7,7 +7,7 @@ import { getContractConfig, ContractConfig } from '@modules/nft/config/contracts
  * @param contractType Optional contract type to use. If not provided, the default contract is used.
  * @returns A new EventService instance configured with the specified contract
  */
-export function createEventService(contractType?: string): EventService {
+export function createEventService(contractType: string = DEFAULT_CONTRACT): EventService {
   const contractConfig = getContractConfig(contractType);
   return new EventService(contractConfig);
 }

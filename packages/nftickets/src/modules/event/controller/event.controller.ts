@@ -5,14 +5,17 @@ import httpStatus from 'http-status';
 import 'express-async-errors';
 import { renderTemplate } from '@utils/template';
 import { createEventService } from '../service/event.service.factory';
+import { DEFAULT_CONTRACT } from '@modules/nft/config/contracts.config';
 import path from 'path';
 
 export const eventRouter = Router();
 
-const service = createEventService();
+// Create a single service instance using the default contract type
+const service = createEventService(DEFAULT_CONTRACT);
 
 eventRouter.post('/', BodyValidation(CreateEventDTO), async (req, res) => {
   const event: CreateEventDTO = req.body;
+  // Contract type is passed in the event and handled by the service
   const createdEvent = await service.create(event);
   res.status(httpStatus.CREATED).json(createdEvent);
 });
@@ -25,14 +28,37 @@ eventRouter.post('/issue-ticket', BodyValidation(IssueTicketDTO), async (req, re
     host: host!,
     protocol,
   };
+
   const { tokenId, address, ticketId } = await service.issueTicket(walletAddress, eventId, sectorName, urlMetadata);
   res.status(httpStatus.CREATED).json({ tokenId, address, ticketId });
 });
 
-/**
- * Endpoint to verify a ticket by checking blockchain ownership
- * @route GET /event/verify/:eventId/:walletAddress/:sectorId
- */
+// Add a route to get event details
+eventRouter.get('/:id', async (req, res) => {
+  const eventId = req.params.id;
+  const event = await service.getEventById(eventId);
+  if (!event) {
+    return res.status(httpStatus.NOT_FOUND).json({ message: `Event with ID ${eventId} not found` });
+  }
+  res.status(httpStatus.OK).json(event);
+});
+
+// Add authentication endpoint
+eventRouter.post('/authenticate/:eventId', async (req, res) => {
+  const eventId = req.params.eventId;
+  const { walletAddress, sectorId } = req.body;
+
+  if (!walletAddress || sectorId === undefined) {
+    return res.status(httpStatus.BAD_REQUEST).json({
+      message: 'walletAddress and sectorId are required',
+    });
+  }
+
+  const result = await service.authenticateTicket(eventId, walletAddress, sectorId);
+  res.status(httpStatus.OK).json(result);
+});
+
+// Ticket verification endpoint with UI
 eventRouter.get('/verify/:eventId/:walletAddress/:sectorId', async (req, res) => {
   const { eventId, walletAddress, sectorId } = req.params;
   const { isAuthenticated, eventName, sectorName } = await service.authenticateTicket(

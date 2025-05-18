@@ -11,34 +11,44 @@ export class PrismaEventRepository implements IEventRepository {
 
   // Event CRUD operations
   async create(data: CreateEventDTO): Promise<EventDTO> {
-    // Create the base event first
-    const eventData = {
-      name: data.name,
-      description: data.description,
-      address: data.address || '',
-      metadata_hash: data.metadata_hash || '',
-    };
+    try {
+      // Create the base event first
+      const eventData: any = {
+        name: data.name,
+        description: data.description,
+        address: data.address || '',
+        metadata_hash: data.metadata_hash || '',
+      };
 
-    // Create the event
-    const createdEvent = await this.prisma.event.create({
-      data: eventData,
-    });
+      // Handle contract_type correctly - Prisma expects snake_case
+      if (data.contractType) {
+        eventData.contract_type = data.contractType;
+      }
 
-    // If there are sectors, create them in a separate operation
-    if (data.sectors && data.sectors.length > 0) {
-      await Promise.all(
-        data.sectors.map(async (sectorDto: SectorDTO) => {
-          // For each sector, create it with a relationship to the event
-          await this.prisma.$executeRaw`
-            INSERT INTO "Sector" (id, event_id, name, description, capacity, contract_sector_id, created_at)
-            VALUES (gen_random_uuid(), ${createdEvent.id}::uuid, ${sectorDto.name}, ${sectorDto.description || sectorDto.name}, ${sectorDto.capacity || 0}, ${sectorDto.contractSectorId || 0}, now())
-          `;
-        })
-      );
+      // Create the event
+      const createdEvent = await this.prisma.event.create({
+        data: eventData,
+      });
+
+      // If there are sectors, create them in a separate operation
+      if (data.sectors && data.sectors.length > 0) {
+        await Promise.all(
+          data.sectors.map(async (sectorDto: SectorDTO) => {
+            // For each sector, create it with a relationship to the event
+            await this.prisma.$executeRaw`
+              INSERT INTO "Sector" (id, event_id, name, description, capacity, contract_sector_id, created_at)
+              VALUES (gen_random_uuid(), ${createdEvent.id}::uuid, ${sectorDto.name}, ${sectorDto.description || sectorDto.name}, ${sectorDto.capacity || 0}, ${sectorDto.contractSectorId || 0}, now())
+            `;
+          })
+        );
+      }
+
+      // Convert entity to DTO
+      return EventDTO.fromEntity(createdEvent);
+    } catch (error) {
+      console.error('Error creating event:', error);
+      throw error;
     }
-
-    // Convert entity to DTO
-    return EventDTO.fromEntity(createdEvent);
   }
 
   async findAll(page: number, limit: number): Promise<{ events: EventDTO[]; total: number }> {

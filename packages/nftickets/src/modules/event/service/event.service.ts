@@ -7,7 +7,7 @@ import { uploadMetadata } from '@modules/image/ipfs';
 import { BUCKET_URL } from '@modules/image/utils/constants';
 import { generateImage } from '@modules/image/image.generator';
 import { Contract } from 'ethers';
-import { ContractConfig } from '@modules/nft/config/contracts.config';
+import { ContractConfig, DEFAULT_CONTRACT, getContractConfig } from '@modules/nft/config/contracts.config';
 import { toUtf8Bytes } from 'ethers';
 import { IEventRepository } from '../repository/event.repository.interface';
 import { createEventRepository } from '../repository/event.repository.factory';
@@ -18,12 +18,16 @@ import { ITicketRepository } from '@modules/ticket/repository/ticket.repository.
 import { createSectorRepository } from '@modules/sector/repository/sector.repository.factory';
 import { ISectorRepository } from '@modules/sector/repository/sector.repository.interface';
 import { VERIFICATION_URL } from '../utils/constants';
+import { MintingStrategyFactory, MintData } from '@modules/nft/strategy/minting';
+import { AuthenticationStrategyFactory, AuthenticationData } from '@modules/nft/strategy/authentication';
+import { DeploymentStrategyFactory, DeploymentData } from '@modules/nft/strategy/deployment';
 
 export class EventService {
   private deployer: Deployer;
   private repository: IEventRepository;
   private ticketRepository: ITicketRepository;
   private sectorRepository: ISectorRepository;
+  private defaultContractType: string;
 
   constructor(private readonly contractConfig: ContractConfig) {
     this.deployer = new Deployer(
@@ -34,23 +38,47 @@ export class EventService {
     this.repository = createEventRepository();
     this.ticketRepository = createTicketRepository();
     this.sectorRepository = createSectorRepository();
+    this.defaultContractType = this.contractConfig.name;
   }
 
-  private getContract(address: string): Contract {
-    return new Contract(address, this.contractConfig.artifact.abi, new Wallet(WALLET_PRIVATE_KEY!, PROVIDER));
+  private getContract(address: string, contractType?: string): Contract {
+    // If contract type is provided, get its config, otherwise use the default
+    const config = contractType ? getContractConfig(contractType) : this.contractConfig;
+
+    return new Contract(address, config.artifact.abi, new Wallet(WALLET_PRIVATE_KEY!, PROVIDER));
   }
 
   async create(event: CreateEventDTO): Promise<EventDTO> {
+    // Use the contract type from the event if provided, otherwise use the default
+    const contractType = event.contractType || this.defaultContractType;
+
     const hash = await uploadMetadata({
       name: event.name,
       description: event.description,
     });
 
-    const address = await this.deployer.deploy(
-      BUCKET_URL(hash),
-      event.sectors.map((sector) => sector.name),
-      event.sectors.map((sector) => sector.capacity)
+    // Get the correct contract config based on the contract type
+    const contractConfig = getContractConfig(contractType);
+
+    // Create a deployer with the correct contract artifact
+    const typeSpecificDeployer = new Deployer(
+      new Wallet(WALLET_PRIVATE_KEY!, PROVIDER),
+      contractConfig.artifact.abi,
+      contractConfig.artifact.bytecode
     );
+
+    const deploymentStrategy = DeploymentStrategyFactory.getStrategy(contractType);
+
+    const deploymentResult = await deploymentStrategy.deploy(typeSpecificDeployer, {
+      eventName: event.name,
+      metadataHash: hash,
+      sectors: event.sectors.map((sector) => ({
+        name: sector.name,
+        capacity: sector.capacity,
+      })),
+    });
+
+    const address = deploymentResult.address;
 
     // Add contract sector ID (index) to each sector
     const sectorsWithIds = event.sectors.map((sector, index) => ({
@@ -63,6 +91,7 @@ export class EventService {
       sectors: sectorsWithIds,
       address,
       metadata_hash: hash,
+      contractType, // Store the event-specific contract type in the database
     });
 
     return createdEvent;
@@ -91,7 +120,9 @@ export class EventService {
       throw new NotFoundException(sectorName);
     }
 
-    const contract = this.getContract(eventAddress);
+    // Use the contract type stored with the event
+    const contractType = event.contractType || DEFAULT_CONTRACT;
+    const contract = this.getContract(eventAddress, contractType);
 
     // Get the current token ID before minting
     const currentTokenId = await contract.getCurrentId();
@@ -121,15 +152,20 @@ export class EventService {
       ticketImage
     );
 
-    const mintData: MintTicketDTO = {
+    // Create mint data for the strategy
+    const metadataURI = BUCKET_URL(tokenMetadataHash);
+
+    // Get the appropriate minting strategy based on contract type
+    const mintingStrategy = MintingStrategyFactory.getStrategy(contractType);
+
+    // Execute the minting strategy
+    await mintingStrategy.mint(contract, {
       walletAddress,
       eventAddress,
       sectorId: contractSectorId,
+      metadataURI,
       amount: 1,
-      metadataURI: BUCKET_URL(tokenMetadataHash),
-    };
-
-    await this.mintTicket(mintData);
+    });
 
     // Get the sector from database to access its ID
     const dbSector = await this.sectorRepository.findByEventIdAndName(eventId, sectorName);
@@ -151,32 +187,21 @@ export class EventService {
     };
   }
 
-  private async mintTicket(mintData: MintTicketDTO): Promise<{ transactionHash: string }> {
-    const contract = this.getContract(mintData.eventAddress);
-    const tx = await contract.mint(
-      mintData.walletAddress,
-      mintData.sectorId,
-      mintData.amount,
-      mintData.metadataURI || '',
-      '0x' // Empty bytes for data parameter
-    );
-    const receipt = await tx.wait();
-    return { transactionHash: receipt.hash };
-  }
+  // Minting is now handled by the strategy pattern
 
   /**
    * Get the token URI for a specific token ID
    */
-  async getTokenURI(eventAddress: string, tokenId: number): Promise<string> {
-    const contract = this.getContract(eventAddress);
+  async getTokenURI(eventAddress: string, tokenId: number, contractType?: string): Promise<string> {
+    const contract = this.getContract(eventAddress, contractType);
     return await contract.getTokenURI(tokenId);
   }
 
   /**
    * Get the current token ID from the contract
    */
-  async getCurrentTokenId(eventAddress: string): Promise<number> {
-    const contract = this.getContract(eventAddress);
+  async getCurrentTokenId(eventAddress: string, contractType?: string): Promise<number> {
+    const contract = this.getContract(eventAddress, contractType);
     const currentId = await contract.getCurrentId();
     return Number(currentId);
   }
@@ -203,9 +228,20 @@ export class EventService {
         throw new NotFoundException(`Sector with ID ${sectorId} not found`);
       }
 
-      // Call the authenticate function on the smart contract
-      const contract = this.getContract(event.address);
-      const isAuthentic = await contract.authenticate(walletAddress, sectorId);
+      // Get the contract using the event's contract type
+      const contractType = event.contractType || DEFAULT_CONTRACT;
+      const contract = this.getContract(event.address, contractType);
+
+      // Get the appropriate authentication strategy
+      const authStrategy = AuthenticationStrategyFactory.getStrategy(contractType);
+
+      // Execute the authentication strategy
+      const authResult = await authStrategy.authenticate(contract, {
+        walletAddress,
+        sectorId,
+      });
+
+      const isAuthentic = authResult.isAuthenticated;
 
       return {
         isAuthenticated: isAuthentic,
@@ -238,5 +274,12 @@ export class EventService {
       console.error('Authentication error:', error);
       return { isAuthenticated: false };
     }
+  }
+
+  /**
+   * Get an event by ID
+   */
+  async getEventById(eventId: string): Promise<EventDTO | null> {
+    return this.repository.findById(eventId);
   }
 }
