@@ -11,33 +11,24 @@ import { apiKeyAuth } from '@modules/apikey/middleware/apikey.middleware';
 
 export const eventRouter = Router();
 
-// Create a single service instance using the default contract type
 const service = createEventService(DEFAULT_CONTRACT);
 
-// Test endpoint for API key authentication
-eventRouter.get('/test-auth', apiKeyAuth, async (req, res) => {
-  // If this code is executed, it means the API key middleware has authenticated the request
-  // The wallet address can be accessed from req.walletAddress (added by the middleware)
-
-  return res.status(httpStatus.OK).json({
-    success: true,
-    message: 'API key authentication successful',
-    authenticated: true,
-    walletAddress: req.walletAddress,
-    signature: req.signature,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-eventRouter.post('/', BodyValidation(CreateEventDTO), async (req, res) => {
+eventRouter.post('/', apiKeyAuth, BodyValidation(CreateEventDTO), async (req, res) => {
   const event: CreateEventDTO = req.body;
-  // Contract type is passed in the event and handled by the service
-  const createdEvent = await service.create(event);
+
+  const walletAddress = req.walletAddress as string;
+  const signature = req.signature as string;
+
+  const createdEvent = await service.create(event, walletAddress, signature);
+
   res.status(httpStatus.CREATED).json(createdEvent);
 });
 
-eventRouter.post('/issue-ticket', BodyValidation(IssueTicketDTO), async (req, res) => {
-  const { walletAddress, eventId, sectorName } = req.body;
+eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), async (req, res) => {
+  const walletAddress = req.walletAddress as string;
+  const signature = req.signature as string;
+  const { eventId, sectorName } = req.body;
+
   const host = req.get('host');
   const protocol = req.protocol;
   const urlMetadata = {
@@ -45,7 +36,13 @@ eventRouter.post('/issue-ticket', BodyValidation(IssueTicketDTO), async (req, re
     protocol,
   };
 
-  const { tokenId, address, ticketId } = await service.issueTicket(walletAddress, eventId, sectorName, urlMetadata);
+  const { tokenId, address, ticketId } = await service.issueTicket(
+    walletAddress,
+    eventId,
+    sectorName,
+    urlMetadata,
+    signature
+  );
   res.status(httpStatus.CREATED).json({ tokenId, address, ticketId });
 });
 
@@ -59,31 +56,15 @@ eventRouter.get('/:id', async (req, res) => {
   res.status(httpStatus.OK).json(event);
 });
 
-// Add authentication endpoint
-eventRouter.post('/authenticate/:eventId', async (req, res) => {
-  const eventId = req.params.eventId;
-  const { walletAddress, sectorId } = req.body;
-
-  if (!walletAddress || sectorId === undefined) {
-    return res.status(httpStatus.BAD_REQUEST).json({
-      message: 'walletAddress and sectorId are required',
-    });
-  }
-
-  const result = await service.authenticateTicket(eventId, walletAddress, sectorId);
-  res.status(httpStatus.OK).json(result);
-});
-
-// Ticket verification endpoint with UI
 eventRouter.get('/verify/:eventId/:walletAddress/:sectorId', async (req, res) => {
   const { eventId, walletAddress, sectorId } = req.params;
   const { isAuthenticated, eventName, sectorName } = await service.authenticateTicket(
     eventId,
     walletAddress,
-    parseInt(sectorId, 10)
+    parseInt(sectorId, 10),
+    ''
   );
 
-  // Define CSS classes based on the result
   const colorClass = isAuthenticated ? 'success' : 'failure';
 
   const templateData = {
@@ -99,7 +80,6 @@ eventRouter.get('/verify/:eventId/:walletAddress/:sectorId', async (req, res) =>
       : 'Verification failed. This address does not own a valid ticket for this sector.',
   };
 
-  // Use a relative path that works in Docker
   const templatePath = path.join(__dirname, '../templates/authentication.html');
 
   const htmlResponse = renderTemplate(templatePath, templateData);
