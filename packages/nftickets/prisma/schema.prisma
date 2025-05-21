@@ -55,4 +55,16 @@ model Ticket {
   @@map("Ticket")
 }
 
+model ApiKey {
+  id         String   @id @default(uuid()) @db.Uuid
+  key        String   @unique
+  wallet_address String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  updated_at DateTime @updatedAt @db.Timestamp(6)
+
+  @@index([wallet_address])
+  @@map("ApiKey")
+}
+
 

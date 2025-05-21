@@ -7,11 +7,27 @@ import { renderTemplate } from '@utils/template';
 import { createEventService } from '../service/event.service.factory';
 import { DEFAULT_CONTRACT } from '@modules/nft/config/contracts.config';
 import path from 'path';
+import { apiKeyAuth } from '@modules/apikey/middleware/apikey.middleware';
 
 export const eventRouter = Router();
 
 // Create a single service instance using the default contract type
 const service = createEventService(DEFAULT_CONTRACT);
+
+// Test endpoint for API key authentication
+eventRouter.get('/test-auth', apiKeyAuth, async (req, res) => {
+  // If this code is executed, it means the API key middleware has authenticated the request
+  // The wallet address can be accessed from req.walletAddress (added by the middleware)
+
+  return res.status(httpStatus.OK).json({
+    success: true,
+    message: 'API key authentication successful',
+    authenticated: true,
+    walletAddress: req.walletAddress,
+    signature: req.signature,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 eventRouter.post('/', BodyValidation(CreateEventDTO), async (req, res) => {
   const event: CreateEventDTO = req.body;

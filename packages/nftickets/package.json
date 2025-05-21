@@ -30,6 +30,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@azure/identity": "^4.10.0",
+    "@azure/keyvault-secrets": "^4.9.0",
     "@prisma/client": "^5.18.0",
     "@tatumio/tatum": "^4.2.40",
     "canvas": "^2.11.2",
