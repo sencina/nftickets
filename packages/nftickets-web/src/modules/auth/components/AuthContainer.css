@@ -1,0 +1,219 @@
+.auth-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem;
+  border-radius: 12px;
+  background-color: #ffffff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #3a3a3a;
+}
+
+.auth-header p {
+  color: #666;
+  font-size: 1rem;
+}
+
+.auth-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.auth-step {
+  padding: 1.5rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.auth-step.active {
+  border-color: #1a88ff;
+  box-shadow: 0 0 0 1px #1a88ff;
+}
+
+.auth-step.completed {
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px #10b981;
+}
+
+.auth-step-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #e5e5e5;
+  color: #666;
+  font-weight: bold;
+  margin-right: 1rem;
+}
+
+.auth-step.active .step-number {
+  background-color: #1a88ff;
+  color: white;
+}
+
+.auth-step.completed .step-number {
+  background-color: #10b981;
+  color: white;
+}
+
+.step-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #3a3a3a;
+}
+
+/* Button Styles */
+button {
+  cursor: pointer;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  width: 100%;
+}
+
+.connect-button, .sign-button, .generate-button {
+  background-color: #1a88ff;
+  color: white;
+}
+
+.connect-button:hover, .sign-button:hover, .generate-button:hover {
+  background-color: #0066cc;
+}
+
+.connect-button:disabled, .sign-button:disabled, .generate-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.connect-button.connected, .sign-button.signed {
+  background-color: #10b981;
+}
+
+/* Message Preview */
+.message-preview {
+  background-color: #f5f5f5;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.message-preview h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.message-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+/* API Key Styling */
+.api-key-container {
+  margin-top: 1rem;
+}
+
+.api-key {
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.api-key code {
+  flex: 1;
+  overflow: auto;
+  white-space: nowrap;
+  font-family: monospace;
+}
+
+.copy-button {
+  background-color: transparent;
+  color: #1a88ff;
+  padding: 0.25rem 0.5rem;
+  width: auto;
+  font-size: 0.9rem;
+  border: 1px solid #1a88ff;
+  border-radius: 4px;
+  margin-left: 0.5rem;
+}
+
+.copy-button:hover {
+  background-color: #1a88ff;
+  color: white;
+}
+
+.api-key-instructions {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.api-key-instructions pre {
+  background-color: #f5f5f5;
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow: auto;
+  font-family: monospace;
+  margin-top: 0.5rem;
+}
+
+/* Error Messages */
+.error-message {
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.success-message {
+  background-color: #d1fae5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.install-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #1a88ff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.install-link:hover {
+  text-decoration: underline;
+} 
