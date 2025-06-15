@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import express, { Application } from 'express';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';

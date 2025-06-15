@@ -7,7 +7,8 @@ export class NFTicket1155DeployStrategy implements DeploymentStrategy {
     const address = await deployer.deploy(
       BUCKET_URL(data.metadataHash),
       data.sectors.map((sector) => sector.name),
-      data.sectors.map((sector) => sector.capacity)
+      data.sectors.map((sector) => sector.capacity),
+      data.maxMintPerTransaction || 10 // Default to 10 if not specified
     );
 
     return { address };

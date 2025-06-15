@@ -20,6 +20,21 @@ import { MintingStrategyFactory } from '@modules/nft/strategy/minting';
 import { AuthenticationStrategyFactory } from '@modules/nft/strategy/authentication';
 import { DeploymentStrategyFactory } from '@modules/nft/strategy/deployment';
 
+interface TransferStrategyNormal {
+  type: 'NORMAL';
+}
+
+interface TransferStrategyNonTransferable {
+  type: 'NON_TRANSFERABLE';
+}
+
+interface TransferStrategyFallback {
+  type: 'FALLBACK';
+  fallbackAddresses: string[];
+}
+
+type TransferStrategy = TransferStrategyNormal | TransferStrategyNonTransferable | TransferStrategyFallback;
+
 export class EventService {
   private deployer: Deployer | undefined;
   private repository: IEventRepository;
@@ -113,6 +128,7 @@ export class EventService {
           name: sector.name,
           capacity: sector.capacity,
         })),
+        maxMintPerTransaction: event.maxMintPerTransaction || 10, // Default to 10 if not specified
       });
 
       const address = deploymentResult.address;
@@ -132,10 +148,45 @@ export class EventService {
         contractType, // Store the event-specific contract type in the database
       });
 
+      // Set maxMintPerTransaction if provided
+      if (event.maxMintPerTransaction) {
+        const contract = this.getContractWithServerWallet(address, walletAddress, contractType);
+        await contract.setMaxMintPerTransaction(event.maxMintPerTransaction);
+      }
+
       return createdEvent;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating event:', error);
-      throw new ValidationException([{ message: 'Failed to create event: ' + (error as Error).message }]);
+
+      // Handle insufficient funds error
+      if (error instanceof Error && error.message && error.message.includes('insufficient funds')) {
+        const match = error.message.match(/balance ([\d.]+), tx cost ([\d.]+), overshot ([\d.]+)/);
+        if (match) {
+          const [, balance, cost, deficit] = match;
+          throw new ValidationException([
+            {
+              message: `Failed to create event: Insufficient funds for deployment`,
+              details: {
+                currentBalance: parseFloat(balance),
+                requiredAmount: parseFloat(cost),
+                missingAmount: parseFloat(deficit),
+                unit: 'ETH',
+              },
+            },
+          ]);
+        }
+      }
+
+      // Handle other errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = error instanceof Error && 'code' in error ? (error as any).code : undefined;
+
+      throw new ValidationException([
+        {
+          message: 'Failed to create event: ' + errorMessage,
+          details: errorCode ? { errorCode } : undefined,
+        },
+      ]);
     }
   }
 
@@ -144,7 +195,8 @@ export class EventService {
     eventId: string,
     sectorName: string,
     urlMetadata: { host: string; protocol: string },
-    signature?: string
+    signature?: string,
+    transferStrategy?: TransferStrategy
   ): Promise<{ tokenId: number; address: string; ticketId: string }> {
     const event = await this.repository.findById(eventId);
     if (!event) {
@@ -204,6 +256,44 @@ export class EventService {
       // Get the appropriate minting strategy based on contract type
       const mintingStrategy = MintingStrategyFactory.getStrategy(contractType);
 
+      // Prepare transfer strategy data
+      let strategyData = {
+        strategyId: 1, // Default to NormalTransferStrategy
+        initData: '0x', // Empty initialization data
+      };
+
+      // Prepare database transfer strategy data
+      let transferStrategyType: TransferStrategy['type'] = 'NORMAL';
+      let transferStrategyData: Record<string, any> | undefined;
+
+      if (transferStrategy) {
+        transferStrategyType = transferStrategy.type;
+
+        switch (transferStrategy.type) {
+          case 'NON_TRANSFERABLE':
+            strategyData.strategyId = 2;
+            break;
+          case 'FALLBACK':
+            const fallbackStrategy = transferStrategy as TransferStrategyFallback;
+            if (!fallbackStrategy.fallbackAddresses || !fallbackStrategy.fallbackAddresses.length) {
+              throw new ValidationException([
+                { message: 'Fallback addresses are required for FALLBACK transfer strategy' },
+              ]);
+            }
+            strategyData.strategyId = 3;
+            // Encode the fallback addresses for the strategy initialization
+            const abiCoder = new (require('web3').eth.abi)();
+            strategyData.initData = abiCoder.encodeParameters(['address[]'], [fallbackStrategy.fallbackAddresses]);
+            // Store fallback addresses in the database
+            transferStrategyData = { fallbackAddresses: fallbackStrategy.fallbackAddresses };
+            break;
+          case 'NORMAL':
+          default:
+            // Already set to default values
+            break;
+        }
+      }
+
       // Execute the minting strategy - using the server wallet to execute
       // but minting the token to the provided wallet address
       await mintingStrategy.mint(contract, {
@@ -214,6 +304,9 @@ export class EventService {
         amount: 1,
       });
 
+      // Set the transfer strategy for the token
+      await contract.setTokenTransferStrategy(currentTokenId, strategyData.strategyId, strategyData.initData);
+
       // Get the sector from database to access its ID
       const dbSector = await this.sectorRepository.findByEventIdAndName(eventId, sectorName);
 
@@ -221,10 +314,12 @@ export class EventService {
         throw new NotFoundException(sectorName);
       }
 
-      // Create a ticket record in the database with the token ID
+      // Create a ticket record in the database with the token ID and transfer strategy
       const ticket = await this.ticketRepository.create({
         sector_id: dbSector.id,
         contract_token_id: currentTokenId.toString(),
+        transfer_strategy_type: transferStrategyType,
+        transfer_strategy_data: transferStrategyData,
       });
 
       return {

@@ -9,7 +9,22 @@ import {
   IsDate,
   IsArray,
   IsEthereumAddress,
+  IsObject,
+  ValidateNested,
+  IsIn,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class TransferStrategyDTO {
+  @IsString()
+  @IsIn(['NORMAL', 'NON_TRANSFERABLE', 'FALLBACK', 'ONE_TIME_USE'])
+  type!: 'NORMAL' | 'NON_TRANSFERABLE' | 'FALLBACK' | 'ONE_TIME_USE';
+
+  @IsArray()
+  @IsEthereumAddress({ each: true })
+  @IsOptional()
+  fallbackAddresses?: string[];
+}
 
 export class IssueTicketDTO {
   @IsString()
@@ -21,10 +36,16 @@ export class IssueTicketDTO {
   @IsString()
   sectorName: string;
 
-  constructor(walletAddress: string, eventId: string, sectorName: string) {
+  @ValidateNested()
+  @IsOptional()
+  @Type(() => TransferStrategyDTO)
+  transferStrategy?: TransferStrategyDTO;
+
+  constructor(walletAddress: string, eventId: string, sectorName: string, transferStrategy?: TransferStrategyDTO) {
     this.walletAddress = walletAddress;
     this.eventId = eventId;
     this.sectorName = sectorName;
+    this.transferStrategy = transferStrategy;
   }
 }
 
@@ -97,13 +118,19 @@ export class CreateEventDTO {
   @IsOptional()
   metadata_hash?: string;
 
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  maxMintPerTransaction?: number;
+
   constructor(
     name: string,
     description: string,
     sectors: SectorDTO[],
     contractType?: string,
     address?: string,
-    metadata_hash?: string
+    metadata_hash?: string,
+    maxMintPerTransaction?: number
   ) {
     this.name = name;
     this.description = description;
@@ -111,6 +138,7 @@ export class CreateEventDTO {
     this.contractType = contractType || DEFAULT_CONTRACT;
     this.address = address;
     this.metadata_hash = metadata_hash;
+    this.maxMintPerTransaction = maxMintPerTransaction;
   }
 }
 

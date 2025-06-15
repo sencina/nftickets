@@ -1,7 +1,14 @@
 import { Ticket } from '@prisma/client';
 
+export interface CreateTicketData {
+  sector_id: string;
+  contract_token_id: string;
+  transfer_strategy_type: 'NORMAL' | 'NON_TRANSFERABLE' | 'FALLBACK' | 'ONE_TIME_USE';
+  transfer_strategy_data?: Record<string, any>;
+}
+
 export interface ITicketRepository {
-  create(data: { sector_id: string; contract_token_id: string }): Promise<Ticket>;
+  create(data: CreateTicketData): Promise<Ticket>;
 
   findById(id: string): Promise<Ticket | null>;
 

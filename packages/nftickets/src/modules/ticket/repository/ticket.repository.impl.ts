@@ -1,5 +1,5 @@
 import { Ticket, PrismaClient } from '@prisma/client';
-import { ITicketRepository } from './ticket.repository.interface';
+import { ITicketRepository, CreateTicketData } from './ticket.repository.interface';
 import { db } from '@utils/database';
 
 export class TicketRepository implements ITicketRepository {
@@ -9,9 +9,14 @@ export class TicketRepository implements ITicketRepository {
     this.prisma = db;
   }
 
-  async create(data: { sector_id: string; contract_token_id: string }): Promise<Ticket> {
+  async create(data: CreateTicketData): Promise<Ticket> {
     return this.prisma.ticket.create({
-      data,
+      data: {
+        sector_id: data.sector_id,
+        contract_token_id: data.contract_token_id,
+        transfer_strategy_type: data.transfer_strategy_type,
+        transfer_strategy_data: data.transfer_strategy_data || undefined,
+      },
     });
   }
 

@@ -7,6 +7,7 @@ export interface DeploymentData {
     name: string;
     capacity: number;
   }[];
+  maxMintPerTransaction?: number;
 }
 
 export interface DeploymentResult {

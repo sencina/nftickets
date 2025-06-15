@@ -10,7 +10,8 @@ export class NFTicket721DeployStrategy implements DeploymentStrategy {
       data.eventName,
       symbol,
       data.sectors.map((sector) => sector.name),
-      data.sectors.map((sector) => sector.capacity)
+      data.sectors.map((sector) => sector.capacity),
+      data.maxMintPerTransaction || 10 // Default to 10 if not specified
     );
 
     return { address };

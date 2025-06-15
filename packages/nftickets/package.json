@@ -30,8 +30,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@azure/identity": "^4.10.0",
-    "@azure/keyvault-secrets": "^4.9.0",
+    "@azure/core-auth": "^1.9.0",
+    "@azure/core-rest-pipeline": "^1.21.0",
+    "@azure/core-util": "^1.12.0",
+    "@azure/identity": "^4.10.1",
+    "@azure/keyvault-secrets": "^4.10.0",
     "@prisma/client": "^5.18.0",
     "@tatumio/tatum": "^4.2.40",
     "canvas": "^2.11.2",
@@ -48,7 +51,8 @@
     "http-status": "^1.7.4",
     "imagemin": "^8.0.1",
     "imagemin-pngquant": "^9.0.2",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.7",
