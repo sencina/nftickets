@@ -11,6 +11,10 @@ export class AuthenticationStrategyFactory {
 
   private static customStrategies: Record<string, AuthenticationStrategy> = {};
 
+  public static getDefaultStrategies(): Record<string, AuthenticationStrategy> {
+    return this.defaultStrategies;
+  }
+
   public static registerStrategy(contractType: string, strategy: AuthenticationStrategy): void {
     this.customStrategies[contractType] = strategy;
   }

@@ -11,6 +11,10 @@ export class MintingStrategyFactory {
 
   private static customStrategies: Record<string, MintingStrategy> = {};
 
+  public static getDefaultStrategies(): Record<string, MintingStrategy> {
+    return this.defaultStrategies;
+  }
+
   public static registerStrategy(contractType: string, strategy: MintingStrategy): void {
     this.customStrategies[contractType] = strategy;
   }

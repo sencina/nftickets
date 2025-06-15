@@ -8,8 +8,12 @@ import { ErrorHandling } from '@utils/errors';
 import { PORT } from '@env';
 import fs from 'fs';
 import path from 'path';
+import { initializeNFTModule } from '@modules/nft/config/initialize';
 
 require('express-async-errors');
+
+// Initialize modules
+initializeNFTModule();
 
 // Ensure necessary directories exist
 const templateDir = path.join(__dirname, 'modules/event/templates');

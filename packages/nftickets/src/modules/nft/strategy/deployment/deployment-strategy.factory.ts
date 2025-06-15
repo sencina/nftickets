@@ -1,7 +1,7 @@
 import { DeploymentStrategy } from './deployment-strategy.interface';
 import { NFTicket1155DeployStrategy } from './nft-ticket-1155-deploy-strategy';
 import { NFTicket721DeployStrategy } from './nft-ticket-721-deploy-strategy';
-import { CONTRACTS, getContractConfig } from '@modules/nft/config/contracts.config';
+import { getContractConfig } from '@modules/nft/config/contracts.config';
 
 export class DeploymentStrategyFactory {
   private static defaultStrategies: Record<string, DeploymentStrategy> = {
@@ -11,18 +11,8 @@ export class DeploymentStrategyFactory {
 
   private static customStrategies: Record<string, DeploymentStrategy> = {};
 
-  // Initialize strategies from config
-  static {
-    // Add any custom strategies defined in the config
-    if (CONTRACTS) {
-      Object.keys(CONTRACTS).forEach((contractType) => {
-        if (CONTRACTS[contractType].deploymentStrategy) {
-          this.registerStrategy(contractType, CONTRACTS[contractType].deploymentStrategy);
-        }
-      });
-    } else {
-      console.warn('CONTRACTS configuration is not defined. Using default strategies only.');
-    }
+  public static getDefaultStrategies(): Record<string, DeploymentStrategy> {
+    return this.defaultStrategies;
   }
 
   public static registerStrategy(contractType: string, strategy: DeploymentStrategy): void {
