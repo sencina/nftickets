@@ -1,5 +1,5 @@
-# Use the official Node.js 18 image
-FROM node:18
+# Use Node.js 20 image
+FROM node:20-slim
 
 # Set the working directory in the container
 WORKDIR /app
@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y \
     librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install tsx globally
+RUN npm install -g tsx
+
 # Copy package.json and package-lock.json (if present) to the container
 COPY package*.json ./
 
@@ -23,13 +26,14 @@ RUN npm install
 # Copy the rest of the application code to the container
 COPY . .
 
+# Generate Prisma client
 RUN npm run db:generate
 
-# Build the project (assuming you have a build script in your package.json)
+# Build the project
 RUN npm run build
 
-# Expose the port the app will run on (change this if necessary)
+# Expose the port the app will run on
 EXPOSE 8080
 
-# Start the app (adjust if you use a different start command)
-CMD ["npm", "start"]
+# Start the app using tsx directly
+CMD ["tsx", "./src/index.ts"]
