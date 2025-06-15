@@ -7,6 +7,25 @@ pragma solidity ^0.8.24;
  */
 interface NFTicket {
     /**
+     * @dev Registers a new transfer strategy implementation
+     * @param implementation The address of the strategy contract implementation
+     * @return strategyId The ID of the registered strategy
+     */
+    function registerStrategy(address implementation) external returns (uint256);
+
+    /**
+     * @dev Sets the transfer strategy for a specific token
+     * @param tokenId The token ID to set the strategy for
+     * @param strategyId The ID of the registered strategy to use
+     * @param initData The initialization data for the strategy
+     */
+    function setTokenTransferStrategy(
+        uint256 tokenId,
+        uint256 strategyId,
+        bytes memory initData
+    ) external;
+
+    /**
      * @dev Mints a new ticket
      * @param account The account address to receive the ticket
      * @param sector The sector ID for this ticket
@@ -19,12 +38,24 @@ interface NFTicket {
     ) external;
     
     /**
+     * @dev Batch mints multiple tickets
+     * @param account The account address to receive the tickets
+     * @param sectorIds Array of sector IDs for the tickets
+     * @param metadataURIs Array of URIs for the ticket metadata
+     */
+    function batchMint(
+        address account,
+        uint256[] memory sectorIds,
+        string[] memory metadataURIs
+    ) external;
+    
+    /**
      * @dev Authenticates if an address owns a specific ticket
      * @param sender The address to check
      * @param tokenId The token ID to authenticate
-     * @return True if the address owns the token
+     * @return True if the address owns the token and it hasn't been authenticated before
      */
-    function authenticate(address sender, uint256 tokenId) external view returns (bool);
+    function authenticate(address sender, uint256 tokenId) external returns (bool);
     
     /**
      * @dev Returns the URI for a token's metadata
@@ -58,4 +89,19 @@ interface NFTicket {
      * @param account The address that received the token
      */
     event TokenMinted(uint256 indexed id, address indexed account, uint256 sectorId);
+
+    /**
+     * @dev Emitted when a new strategy is registered
+     * @param strategyId The ID assigned to the strategy
+     * @param implementation The address of the strategy implementation
+     */
+    event StrategyRegistered(uint256 indexed strategyId, address implementation);
+
+    /**
+     * @dev Emitted when a token's strategy is set
+     * @param tokenId The token ID
+     * @param strategyId The ID of the strategy
+     * @param initData The initialization data used
+     */
+    event TokenStrategySet(uint256 indexed tokenId, uint256 indexed strategyId, bytes initData);
 } 
