@@ -8,11 +8,26 @@ interface ApiKeyGeneratorProps {
   apiUrl?: string;
 }
 
+// Validation error types
+interface ValidationConstraint {
+  property: string;
+  constraints: string[];
+}
+
+interface ValidationErrorResponse {
+  success: boolean;
+  message: string;
+  errors: ValidationConstraint[];
+}
+
+// Default API URL from environment variable, fallback to /api/apikey/generate if not set
+const DEFAULT_API_URL = '/api/apikey/generate';
+
 const ApiKeyGenerator: React.FC<ApiKeyGeneratorProps> = ({
   walletAddress,
   signature,
   message,
-  apiUrl = 'http://localhost:3000/api/apikey/generate'
+  apiUrl = DEFAULT_API_URL
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,19 +45,28 @@ const ApiKeyGenerator: React.FC<ApiKeyGeneratorProps> = ({
         message
       });
 
-      if (response.data.success && response.data.apiKey) {
+      if (response.data.apiKey) {
         setApiKey(response.data.apiKey);
       } else {
-        throw new Error(response.data.message || 'Failed to generate API key');
+        throw new Error('No API key in response');
       }
     } catch (error: unknown) {
       console.error('Error generating API key:', error);
       if (error instanceof AxiosError) {
-        setError(
-          error.response?.data?.message || 
-          error.message || 
-          'Failed to generate API key'
-        );
+        // Handle validation errors specifically
+        const validationResponse = error.response?.data as ValidationErrorResponse;
+        if (validationResponse?.errors) {
+          const validationErrors = validationResponse.errors
+            .map(err => err.constraints.join(', '))
+            .join('\n');
+          setError(`Validation failed:\n${validationErrors}`);
+        } else {
+          setError(
+            error.response?.data?.message || 
+            error.message || 
+            'Failed to generate API key'
+          );
+        }
       } else if (error instanceof Error) {
         setError(error.message);
       } else {
@@ -53,9 +77,13 @@ const ApiKeyGenerator: React.FC<ApiKeyGeneratorProps> = ({
     }
   };
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
     if (apiKey) {
-      navigator.clipboard.writeText(apiKey);
+      try {
+        await navigator.clipboard.writeText(apiKey);
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+      }
     }
   };
 
