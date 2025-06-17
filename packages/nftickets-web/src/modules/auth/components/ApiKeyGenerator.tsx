@@ -20,8 +20,10 @@ interface ValidationErrorResponse {
   errors: ValidationConstraint[];
 }
 
-// Default API URL from environment variable, fallback to /api/apikey/generate if not set
-const DEFAULT_API_URL = '/api/apikey/generate';
+// Default API URL from environment variable, fallback to localhost if not set
+const DEFAULT_API_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/apikey/generate`
+  : 'http://localhost:3000/apikey/generate';
 
 const ApiKeyGenerator: React.FC<ApiKeyGeneratorProps> = ({
   walletAddress,
