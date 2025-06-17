@@ -22,8 +22,8 @@ interface ValidationErrorResponse {
 
 // Default API URL from environment variable, fallback to localhost if not set
 const DEFAULT_API_URL = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL}/apikey/generate`
-  : 'http://localhost:3000/apikey/generate';
+  ? `${import.meta.env.VITE_API_URL}/api/apikey/generate`
+  : 'http://localhost:3000/api/apikey/generate';
 
 const ApiKeyGenerator: React.FC<ApiKeyGeneratorProps> = ({
   walletAddress,
