@@ -45,8 +45,12 @@ const ParticleAnimation: React.FC<ParticleProps> = ({
       fadeSpeed: number;
       
       constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
+        // Ensure canvas exists before using its dimensions
+        const width = canvas?.width ?? window.innerWidth;
+        const height = canvas?.height ?? window.innerHeight;
+        
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
         this.size = minSize + Math.random() * (maxSize - minSize);
         this.speedX = (Math.random() - 0.5) * speed;
         this.speedY = (Math.random() - 0.5) * speed;
@@ -58,9 +62,13 @@ const ParticleAnimation: React.FC<ParticleProps> = ({
         this.x += this.speedX;
         this.y += this.speedY;
         
+        // Get current canvas dimensions or fallback to window dimensions
+        const width = canvas?.width ?? window.innerWidth;
+        const height = canvas?.height ?? window.innerHeight;
+        
         // Bounce off edges
-        if (this.x > canvas.width || this.x < 0) this.speedX *= -1;
-        if (this.y > canvas.height || this.y < 0) this.speedY *= -1;
+        if (this.x > width || this.x < 0) this.speedX *= -1;
+        if (this.y > height || this.y < 0) this.speedY *= -1;
         
         // Fade in and out
         this.opacity += Math.random() > 0.5 ? this.fadeSpeed : -this.fadeSpeed;

@@ -173,28 +173,6 @@ function App() {
           </div>
         </div>
       </div>
-
-      {/* Debug link */}
-      <div style={{ 
-        position: 'fixed', 
-        top: '10px', 
-        right: '10px', 
-        zIndex: 1000 
-      }}>
-        <a 
-          href="/debug" 
-          style={{ 
-            color: 'rgba(255,255,255,0.5)', 
-            textDecoration: 'none',
-            fontSize: '12px',
-            background: 'rgba(0,0,0,0.3)',
-            padding: '5px 10px',
-            borderRadius: '5px'
-          }}
-        >
-          Debug View
-        </a>
-      </div>
     </div>
   );
 }

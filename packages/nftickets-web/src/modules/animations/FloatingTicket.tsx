@@ -10,7 +10,7 @@ interface FloatingTicketProps {
 const FloatingTicket: React.FC<FloatingTicketProps> = ({
   color = '#1a88ff',
   position = { x: 0, y: 0, z: -5 },
-  debug = true
+  debug = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -136,18 +136,6 @@ const FloatingTicket: React.FC<FloatingTicketProps> = ({
       side: THREE.DoubleSide
     });
     
-    const backMaterial = new THREE.MeshPhysicalMaterial({
-      color: mainColor.clone().offsetHSL(0, 0, -0.1),
-      metalness: 0.7,
-      roughness: 0.2,
-      reflectivity: 1.0,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.2,
-      side: THREE.DoubleSide
-    });
-    
-    const materials = [frontMaterial, backMaterial];
-    
     // Create mesh with geometry and material
     const ticket = new THREE.Mesh(geometry, frontMaterial);
     scene.add(ticket);
@@ -168,7 +156,6 @@ Time: ${Math.floor(time)}ms
     };
     
     // Add text to ticket
-    const loader = new THREE.TextureLoader();
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     
@@ -249,15 +236,10 @@ Time: ${Math.floor(time)}ms
     ticket.position.set(position.x, position.y, position.z);
     
     // Animation variables
-    let lastTime = 0;
     const rotationSpeed = 0.03;
     
     // Animation function
     const animate = (currentTime: number = 0) => {
-      // Calculate delta time for smooth animation regardless of frame rate
-      const deltaTime = lastTime ? (currentTime - lastTime) / 1000 : 0.016;
-      lastTime = currentTime;
-      
       // Log animation is running (remove in production)
       if (Math.floor(currentTime) % 1000 === 0) {
         console.log('Ticket animation running:', currentTime);
