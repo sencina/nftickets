@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner, Html5QrcodeScannerState } from 'html5-qrcode';
+import { Html5QrcodeScanner, Html5QrcodeScannerState, Html5QrcodeScanType } from 'html5-qrcode';
 import axios from 'axios';
 
 interface QRScannerProps {
@@ -138,11 +138,27 @@ const QRScanner: React.FC<QRScannerProps> = ({
         'qr-reader',
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
+          qrbox: function(viewfinderWidth, viewfinderHeight) {
+            // Make QR box responsive and larger
+            const minEdgePercentage = 0.7; // 70% of the smaller dimension
+            const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+            const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+            return {
+              width: qrboxSize,
+              height: qrboxSize,
+            };
+          },
           aspectRatio: 1.0,
           showTorchButtonIfSupported: true,
           showZoomSliderIfSupported: true,
-          defaultZoomValueIfSupported: 2,
+          defaultZoomValueIfSupported: 1,
+          // Additional options for better detection
+          supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+          rememberLastUsedCamera: true,
+          // More lenient scanning
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
         },
         false
       );
@@ -160,7 +176,11 @@ const QRScanner: React.FC<QRScannerProps> = ({
           if (errorMessage.includes('permission') || errorMessage.includes('NotAllowed')) {
             setError('Camera permission required. Please allow camera access.');
             setIsScanning(false);
+          } else if (errorMessage.includes('NotFound') || errorMessage.includes('camera')) {
+            setError('No camera found or camera is being used by another app.');
+            setIsScanning(false);
           }
+          // For QR detection errors, we don't stop scanning - just keep trying
         }
       );
     } catch (error) {
@@ -179,16 +199,25 @@ const QRScanner: React.FC<QRScannerProps> = ({
   };
 
   const handleScanSuccess = async (decodedText: string) => {
+    console.log('QR Code detected:', decodedText);
     setLoading(true);
     stopScanning();
 
     try {
-      // Parse the QR code data
-      const qrData: QRCodeData = JSON.parse(decodedText);
+      let qrData: QRCodeData;
+      
+      // Try to parse as JSON first
+      try {
+        qrData = JSON.parse(decodedText);
+      } catch {
+        // If not JSON, check if it's a URL or other format
+        console.log('QR code is not JSON format:', decodedText);
+        throw new Error(`Invalid QR code format. Expected NFTicket QR code but got: ${decodedText.substring(0, 100)}...`);
+      }
       
       // Validate QR data structure
       if (!qrData.tokenId || !qrData.contractAddress || !qrData.signature) {
-        throw new Error('Invalid QR code format');
+        throw new Error('Invalid NFTicket QR code format. Missing required fields.');
       }
 
       // Send verification request to API
@@ -236,6 +265,24 @@ const QRScanner: React.FC<QRScannerProps> = ({
       <div className="scanner-header">
         <h2>NFTicket QR Scanner</h2>
         <p>Scan QR codes to verify ticket authenticity</p>
+        {!isScanning && !scanResult && !error && (
+          <div style={{ 
+            background: 'rgba(26, 136, 255, 0.1)', 
+            padding: '1rem', 
+            borderRadius: '8px',
+            marginTop: '1rem',
+            fontSize: '0.9rem',
+            color: 'var(--text-secondary)'
+          }}>
+            <p><strong>📱 Scanning Tips:</strong></p>
+            <ul style={{ textAlign: 'left', margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+              <li>Hold your device steady</li>
+              <li>Ensure good lighting</li>
+              <li>Keep QR code within the scanning area</li>
+              <li>Try different distances if not detecting</li>
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Scanner wallet input */}
@@ -273,8 +320,22 @@ const QRScanner: React.FC<QRScannerProps> = ({
       </div>
 
       {/* Scanner viewport - always render the container */}
-      <div className="scanner-viewport" style={{ display: isScanning ? 'block' : 'none' }}>
-        <div id="qr-reader"></div>
+      <div className="scanner-viewport">
+        <div id="qr-reader" style={{ display: isScanning ? 'block' : 'none' }}></div>
+        {!isScanning && (
+          <div style={{ 
+            padding: '2rem', 
+            textAlign: 'center', 
+            color: 'var(--text-secondary)',
+            border: '2px dashed var(--card-border)',
+            borderRadius: '12px'
+          }}>
+            <p>📷 Camera will appear here when scanning starts</p>
+            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+              Make sure the QR code is well-lit and within the scanning area
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Loading state */}
