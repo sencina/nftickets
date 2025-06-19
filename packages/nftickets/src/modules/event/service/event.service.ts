@@ -227,16 +227,31 @@ export class EventService {
 
       const eventName = event.name;
 
-      // Use the VERIFICATION_URL function to generate the URL
-      const verificationUrl = VERIFICATION_URL(
-        urlMetadata.protocol,
-        urlMetadata.host,
+      // Create complete QR code data with all necessary information
+      const qrCodeData = {
+        tokenId: currentTokenId.toString(),
+        contractAddress: eventAddress,
         eventId,
-        walletAddress,
-        contractSectorId
-      );
+        eventName: event.name,
+        sectorName,
+        sectorId: contractSectorId,
+        ticketOwner: walletAddress,
+        timestamp: Date.now(),
+        signature: '', // Will be filled after signing
+        // Removed verificationUrl for security
+      };
 
-      const ticketImage = await generateImage(eventName, sectorName, contractSectorId.toString(), verificationUrl);
+      // Create message to sign (without the signature field)
+      const message = `Verify ticket:\nToken ID: ${qrCodeData.tokenId}\nContract: ${qrCodeData.contractAddress}\nEvent: ${qrCodeData.eventId}\nEvent Name: ${qrCodeData.eventName}\nSector: ${qrCodeData.sectorName}\nSector ID: ${qrCodeData.sectorId}\nOwner: ${qrCodeData.ticketOwner}\nTimestamp: ${qrCodeData.timestamp}`;
+
+      const serverWallet = new Wallet(WALLET_PRIVATE_KEY as string);
+      const signature = await serverWallet.signMessage(message);
+
+      // Add signature to QR code data
+      qrCodeData.signature = signature;
+
+      // Generate ticket image with QR code containing complete data
+      const ticketImage = await generateImage(eventName, sectorName, currentTokenId.toString(), qrCodeData);
 
       const tokenMetadataHash = await uploadMetadata(
         {
@@ -245,7 +260,14 @@ export class EventService {
           sector: sectorName,
           sectorId: contractSectorId,
           eventAddress: eventAddress,
-          verificationUrl: verificationUrl,
+          verificationUrl: VERIFICATION_URL(
+            urlMetadata.protocol,
+            urlMetadata.host,
+            eventId,
+            walletAddress,
+            contractSectorId
+          ),
+          qrCodeData: JSON.stringify(qrCodeData),
         },
         ticketImage
       );
@@ -386,6 +408,7 @@ export class EventService {
       const authResult = await authStrategy.authenticate(contract, {
         walletAddress,
         sectorId,
+        tokenId: 0, // For sector-based authentication, we don't need a specific tokenId
       });
 
       const isAuthentic = authResult.isAuthenticated;
@@ -428,5 +451,106 @@ export class EventService {
    */
   async getEventById(eventId: string): Promise<EventDTO | null> {
     return this.repository.findById(eventId);
+  }
+
+  /**
+   * Get all events
+   */
+  async getAllEvents(): Promise<EventDTO[]> {
+    const result = await this.repository.findAll(1, 1000); // Get first 1000 events
+    return result.events;
+  }
+
+  async markTicketAsUsed(tokenId: string, walletAddress: string): Promise<boolean> {
+    try {
+      const ticket = await this.ticketRepository.findByTokenId(tokenId);
+      if (!ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      if (ticket.is_used) {
+        throw new Error('Ticket has already been used');
+      }
+
+      await this.ticketRepository.markAsUsed(ticket.id, walletAddress);
+      return true;
+    } catch (error) {
+      console.error('Error marking ticket as used:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Authenticate a specific ticket token
+   */
+  async authenticateTicketToken(
+    eventId: string,
+    walletAddress: string,
+    tokenId: number
+  ): Promise<{ isAuthenticated: boolean; eventName?: string; sectorName?: string; sectorId?: number }> {
+    try {
+      // Get event from database by ID
+      const event = await this.repository.findById(eventId);
+
+      if (!event) {
+        throw new NotFoundException(`Event with ID ${eventId} not found`);
+      }
+
+      // Get the contract using the event's contract type and the server wallet
+      const contractType = event.contractType || DEFAULT_CONTRACT;
+      const contract = this.getContractWithServerWallet(event.address, contractType);
+
+      // Get token owner
+      let tokenOwner: string;
+      try {
+        if (contractType === 'NFTicket721') {
+          tokenOwner = await contract.ownerOf(tokenId);
+        } else {
+          // For 1155, check if the wallet has balance > 0
+          const balance = await contract.balanceOf(walletAddress, tokenId);
+          tokenOwner = balance > 0 ? walletAddress : '';
+        }
+      } catch (error) {
+        console.error('Error checking token ownership:', error);
+        return { isAuthenticated: false };
+      }
+
+      // Check if the wallet owns the token
+      if (tokenOwner.toLowerCase() !== walletAddress.toLowerCase()) {
+        return { isAuthenticated: false };
+      }
+
+      // Get token metadata to find the sector
+      let sectorId: number;
+      try {
+        const tokenURI = await contract.tokenURI(tokenId);
+        // Parse metadata to get sector info - this depends on your metadata structure
+        // For now, we'll try to get it from the contract if available
+        sectorId = (await contract.getTokenSector) ? await contract.getTokenSector(tokenId) : 0;
+      } catch (error) {
+        console.error('Error getting token metadata:', error);
+        sectorId = 0; // Default to first sector
+      }
+
+      // Find the sector by contract ID
+      const sector = event.sectors?.find((s) => s.contractSectorId === sectorId);
+
+      return {
+        isAuthenticated: true,
+        eventName: event.name,
+        sectorName: sector?.name || 'Unknown Sector',
+        sectorId: sectorId,
+      };
+    } catch (error) {
+      console.error('Token authentication error:', error);
+      return { isAuthenticated: false };
+    }
+  }
+
+  /**
+   * Get ticket by token ID
+   */
+  async getTicketByTokenId(tokenId: string) {
+    return this.ticketRepository.findByTokenId(tokenId);
   }
 }

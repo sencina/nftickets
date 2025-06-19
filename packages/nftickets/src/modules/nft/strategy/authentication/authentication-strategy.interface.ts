@@ -3,6 +3,7 @@ import { Contract } from 'ethers';
 export interface AuthenticationData {
   walletAddress: string;
   sectorId: number;
+  tokenId: number;
 }
 
 export interface AuthenticationResult {

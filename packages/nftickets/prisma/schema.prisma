@@ -52,6 +52,9 @@ model Ticket {
   created_at DateTime @default(now()) @db.Timestamp(6)
   transfer_strategy_type String @default("NORMAL")
   transfer_strategy_data Json?
+  is_used    Boolean  @default(false)
+  used_at    DateTime?
+  used_by    String?  // Wallet address that used the ticket
 
   @@index([sector_id])
   @@map("Ticket")

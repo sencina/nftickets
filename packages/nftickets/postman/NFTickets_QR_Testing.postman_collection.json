@@ -1,0 +1,240 @@
+{
+  "info": {
+    "_postman_id": "your-collection-id",
+    "name": "NFTickets QR Testing",
+    "description": "Test collection for NFTickets QR code flow",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "walletAddress",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tokenId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "contractAddress",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Generate API Key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/apikey/generate",
+          "host": ["{{baseUrl}}"],
+          "path": ["apikey", "generate"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"walletAddress\": \"{{walletAddress}}\",\n  \"signature\": \"YOUR_SIGNATURE\",\n  \"message\": \"Generate API key for NFTickets\"\n}"
+        },
+        "description": "Generate an API key for authentication. You'll need to sign the message with your wallet first."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.environment.set('apiKey', jsonData.apiKey);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Create Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/event",
+          "host": ["{{baseUrl}}"],
+          "path": ["event"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Test Concert\",\n  \"description\": \"A test concert event\",\n  \"sectors\": [\n    {\n      \"name\": \"VIP\",\n      \"description\": \"VIP Section\",\n      \"capacity\": 100\n    },\n    {\n      \"name\": \"General\",\n      \"description\": \"General Admission\",\n      \"capacity\": 500\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.environment.set('eventId', jsonData.id);",
+              "    pm.environment.set('contractAddress', jsonData.address);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Issue Ticket",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/event/issue-ticket",
+          "host": ["{{baseUrl}}"],
+          "path": ["event", "issue-ticket"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"sectorName\": \"VIP\",\n  \"walletAddress\": \"{{walletAddress}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.environment.set('tokenId', jsonData.tokenId.toString());",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Get Token URI (Contains QR Data)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/event/token-uri/{{contractAddress}}/{{tokenId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["event", "token-uri", "{{contractAddress}}", "{{tokenId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    console.log('Token URI Response:', JSON.stringify(jsonData, null, 2));",
+              "    // The QR code data should be in the metadata",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Authenticate Ticket by Sector",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/event/authenticate-ticket",
+          "host": ["{{baseUrl}}"],
+          "path": ["event", "authenticate-ticket"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"walletAddress\": \"{{walletAddress}}\",\n  \"sectorId\": 0\n}"
+        }
+      }
+    },
+    {
+      "name": "6. Verify QR Code",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{apiKey}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/event/verify-qr",
+          "host": ["{{baseUrl}}"],
+          "path": ["event", "verify-qr"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"qrCodeData\": {\n    \"tokenId\": \"{{tokenId}}\",\n    \"contractAddress\": \"{{contractAddress}}\",\n    \"eventId\": \"{{eventId}}\",\n    \"eventName\": \"Test Concert\",\n    \"sectorName\": \"VIP\",\n    \"sectorId\": 0,\n    \"ticketOwner\": \"{{walletAddress}}\",\n    \"timestamp\": \"REPLACE_WITH_TIMESTAMP_FROM_TOKEN_URI\",\n    \"signature\": \"REPLACE_WITH_SIGNATURE_FROM_TOKEN_URI\"\n  },\n  \"scannerWalletAddress\": \"{{walletAddress}}\"\n}"
+        },
+        "description": "To test this, you need to:\n1. Run the 'Get Token URI' request first\n2. From the response, find the qrCodeData (it's JSON stringified)\n3. Parse the JSON and extract the complete QR code data\n4. Copy the timestamp and signature values\n5. Update this request with those values\n6. Send this request to verify the QR code\n\nThe QR code contains all the information needed for verification:\n- Token ID, Contract Address, Event ID\n- Event Name, Sector Name, Sector ID\n- Ticket Owner (wallet address)\n- Timestamp and Server Signature\n- NO verification URL (for security)"
+      }
+    }
+  ]
+} 

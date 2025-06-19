@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserProvider } from 'ethers';
+import { Link } from 'react-router-dom';
 import WalletConnector from './modules/auth/components/WalletConnector';
 import SignatureGenerator from './modules/auth/components/SignatureGenerator';
 import ApiKeyGenerator from './modules/auth/components/ApiKeyGenerator';
@@ -112,6 +113,16 @@ function App() {
         <div className="auth-header">
           <h1>NFTickets Web3 Auth</h1>
           <p>Connect your wallet to generate an API key for the NFTickets platform</p>
+          
+          {/* Scanner Link */}
+          <div className="scanner-link-container">
+            <Link to="/scanner" className="scanner-link">
+              📱 Open NFT Scanner
+            </Link>
+            <Link to="/test-qr" className="scanner-link test-qr-link">
+              🖥️ Show Test QR Code
+            </Link>
+          </div>
         </div>
 
         <div className="auth-steps">

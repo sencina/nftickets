@@ -1,6 +1,0 @@
-# This file marks the migration as applied
-# https://www.prisma.io/docs/concepts/components/prisma-migrate/migration-engine
-
-[migration]
-name = "20250517185001_add_indexes_and_status"
-provider = "postgresql" 

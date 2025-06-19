@@ -1,0 +1,308 @@
+/* QR Scanner Mobile Styles */
+.qr-scanner {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  background: var(--bg-gradient);
+  min-height: 100vh;
+  color: var(--text-primary);
+  font-family: 'Poppins', sans-serif;
+}
+
+.scanner-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.scanner-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.scanner-header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Wallet Input */
+.wallet-input {
+  margin-bottom: 1.5rem;
+}
+
+.wallet-input label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.wallet-input input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: monospace;
+}
+
+.wallet-input input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(26, 136, 255, 0.2);
+}
+
+.wallet-input input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Scanner Controls */
+.scanner-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.scanner-controls button {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Poppins', sans-serif;
+}
+
+.start-scan-btn {
+  background: var(--primary-gradient);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.start-scan-btn:hover {
+  box-shadow: var(--glow-effect);
+  transform: translateY(-2px);
+}
+
+.stop-scan-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.stop-scan-btn:hover {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
+}
+
+.reset-btn {
+  background: var(--secondary-gradient);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.reset-btn:hover {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Scanner Viewport */
+.scanner-viewport {
+  margin-bottom: 2rem;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+}
+
+#qr-reader {
+  width: 100% !important;
+  border: none !important;
+}
+
+/* Override html5-qrcode styles for mobile */
+#qr-reader > div {
+  border: none !important;
+  background: transparent !important;
+}
+
+#qr-reader video {
+  border-radius: 8px;
+  width: 100% !important;
+  height: auto !important;
+}
+
+#qr-reader__dashboard {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border-radius: 0 0 8px 8px !important;
+  padding: 1rem !important;
+}
+
+#qr-reader__dashboard button {
+  background: var(--primary-gradient) !important;
+  border: none !important;
+  border-radius: 6px !important;
+  color: white !important;
+  padding: 0.5rem 1rem !important;
+  margin: 0.25rem !important;
+  font-weight: 600 !important;
+}
+
+/* Loading State */
+.loading {
+  text-align: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  margin-bottom: 1rem;
+}
+
+.loading p {
+  color: var(--primary-color);
+  font-size: 1.1rem;
+  margin: 0;
+  animation: pulse 1.5s infinite;
+}
+
+/* Results */
+.scan-result, .error-result {
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid;
+  animation: slideUp 0.5s ease-out;
+}
+
+.scan-result.success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.scan-result.failure, .error-result {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.scan-result h3, .error-result h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.scan-result.success h3 {
+  color: #10b981;
+}
+
+.scan-result.failure h3, .error-result h3 {
+  color: #ef4444;
+}
+
+.ticket-info {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.ticket-info p {
+  margin: 0.5rem 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.ticket-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.used-info {
+  background: rgba(239, 68, 68, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.used-info p {
+  margin: 0.25rem 0;
+  color: #ef4444;
+  font-size: 0.9rem;
+}
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  .qr-scanner {
+    padding: 0.5rem;
+  }
+  
+  .scanner-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .scanner-controls {
+    flex-direction: column;
+  }
+  
+  .scanner-controls button {
+    width: 100%;
+  }
+  
+  .wallet-input input {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) and (max-height: 600px) {
+  .qr-scanner {
+    padding: 0.5rem;
+  }
+  
+  .scanner-header {
+    margin-bottom: 1rem;
+  }
+  
+  .scanner-header h2 {
+    font-size: 1.3rem;
+  }
+  
+  .scanner-controls {
+    margin-bottom: 1rem;
+  }
+}
+
+ 

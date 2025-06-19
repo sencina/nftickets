@@ -12,7 +12,11 @@ export interface ITicketRepository {
 
   findById(id: string): Promise<Ticket | null>;
 
+  findByTokenId(tokenId: string): Promise<Ticket | null>;
+
   findBySectorId(sectorId: string): Promise<Ticket[]>;
 
   updateTokenId(id: string, contractTokenId: string): Promise<Ticket>;
+
+  markAsUsed(id: string, usedBy: string): Promise<Ticket>;
 }
