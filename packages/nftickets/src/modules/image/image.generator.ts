@@ -9,14 +9,14 @@ const generateQRCode = async (data: string | object): Promise<string> => {
 
   try {
     const qrCode = await toDataURL(qrData, {
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: 'H', // High error correction for better scanning
       type: 'image/png',
-      margin: 1,
+      margin: 2, // Slightly larger margin for better scanning
       color: {
-        dark: '#000000',
-        light: '#FFFFFF',
+        dark: '#1a88ff', // Blue color to match the web interface
+        light: '#FFFFFF', // Pure white background
       },
-      width: 256,
+      width: 400, // Higher resolution for better quality
     });
     return qrCode;
   } catch (error) {
@@ -40,42 +40,97 @@ export const generateImage = async (
   const canvas = createCanvas(IMAGE_WIDTH, IMAGE_HEIGHT);
   const ctx = canvas.getContext('2d');
 
-  const bkgs = ['Background1', 'Background2', 'Background3'];
-  const bkg = bkgs[Math.floor(Math.random() * bkgs.length)];
-  await addLayer('Backgrounds', bkg, ctx);
+  // Create rounded rectangle function
+  const roundRect = (x: number, y: number, width: number, height: number, radius: number) => {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  };
 
-  // Generate QR code with complete ticket data
+  // Create outer gradient background (blue theme to match web interface)
+  const outerGradient = ctx.createLinearGradient(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+  outerGradient.addColorStop(0, '#1a88ff'); // Primary blue
+  outerGradient.addColorStop(0.5, '#0066cc'); // Medium blue
+  outerGradient.addColorStop(1, '#004499'); // Dark blue
+
+  ctx.fillStyle = outerGradient;
+  ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+
+  // Create inner white card with rounded corners
+  const cardPadding = 30;
+  const cardX = cardPadding;
+  const cardY = cardPadding;
+  const cardWidth = IMAGE_WIDTH - cardPadding * 2;
+  const cardHeight = IMAGE_HEIGHT - cardPadding * 2;
+  const cardRadius = 20;
+
+  // Add shadow for the inner card
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+  ctx.shadowBlur = 15;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 8;
+
+  // Draw white inner card
+  roundRect(cardX, cardY, cardWidth, cardHeight, cardRadius);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  // Reset shadow
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Generate QR code with purple color
   const qrCodeDataURL = await generateQRCode(qrCodeData);
   const qr = await loadImage(qrCodeDataURL);
 
-  // Position QR code in the center-top area
-  const qrSize = 180;
+  // Position QR code in the center-top of the white card
+  const qrSize = 280;
   const qrX = (IMAGE_WIDTH - qrSize) / 2;
-  const qrY = 60;
+  const qrY = cardY + 40;
+
+  // Draw QR code
   ctx.drawImage(qr, qrX, qrY, qrSize, qrSize);
 
-  // Add ticket information text
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 2;
-  ctx.font = 'bold 24px Arial, sans-serif';
+  // Event name styling
+  const eventY = qrY + qrSize + 50;
+  ctx.font = 'bold 48px system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = '#000000';
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(eventName.toUpperCase(), IMAGE_WIDTH / 2, eventY);
 
-  // Event name
-  const eventText = eventName.toUpperCase();
-  ctx.strokeText(eventText, IMAGE_WIDTH / 2, 280);
-  ctx.fillText(eventText, IMAGE_WIDTH / 2, 280);
+  // NFT badge with gradient background
+  const badgeY = eventY + 60;
+  const badgeWidth = 180;
+  const badgeHeight = 50;
+  const badgeX = (IMAGE_WIDTH - badgeWidth) / 2;
+  const badgeRadius = 25;
 
-  // Sector and token info
-  ctx.font = 'bold 18px Arial, sans-serif';
-  const sectorText = `${type.toUpperCase()} - TOKEN #${nftId}`;
-  ctx.strokeText(sectorText, IMAGE_WIDTH / 2, 310);
-  ctx.fillText(sectorText, IMAGE_WIDTH / 2, 310);
+  // Create badge gradient (blue theme)
+  const badgeGradient = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeWidth, badgeY);
+  badgeGradient.addColorStop(0, '#1a88ff'); // Primary blue
+  badgeGradient.addColorStop(1, '#0066cc'); // Darker blue
 
-  // Add QR code instruction
-  ctx.font = '14px Arial, sans-serif';
-  ctx.fillStyle = '#cccccc';
-  ctx.fillText('Scan QR code for verification', IMAGE_WIDTH / 2, 460);
+  // Draw badge background
+  roundRect(badgeX, badgeY, badgeWidth, badgeHeight, badgeRadius);
+  ctx.fillStyle = badgeGradient;
+  ctx.fill();
+
+  // Badge text
+  ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${type.toUpperCase()} #${nftId}`, IMAGE_WIDTH / 2, badgeY + badgeHeight / 2);
 
   const buffer = canvas.toBuffer('image/png');
   return buffer;
