@@ -29,8 +29,6 @@ const QRTestPage: React.FC = () => {
       const qrString = JSON.stringify(sampleQRData);
       const dataUrl = await QRCode.toDataURL(qrString, {
         errorCorrectionLevel: 'M',
-        type: 'image/png',
-        quality: 0.92,
         margin: 2,
         color: {
           dark: '#000000',

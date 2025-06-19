@@ -60,7 +60,52 @@ const QRScanner: React.FC<QRScannerProps> = ({
     };
   }, []);
 
-  const startScanning = () => {
+  const requestCameraPermission = async (): Promise<boolean> => {
+    try {
+      // First check if we're on HTTPS or localhost
+      const isSecure = window.location.protocol === 'https:' || 
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1';
+      
+      if (!isSecure) {
+        setError('Camera access requires HTTPS. Please use HTTPS or localhost.');
+        return false;
+      }
+
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Camera access is not supported in this browser.');
+        return false;
+      }
+
+      // Request camera permission
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Prefer back camera
+      });
+      
+      // Stop the stream immediately (we just needed permission)
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (error) {
+      console.error('Camera permission error:', error);
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          setError('Camera permission denied. Please allow camera access and try again.');
+        } else if (error.name === 'NotFoundError') {
+          setError('No camera found on this device.');
+        } else if (error.name === 'NotSupportedError') {
+          setError('Camera access is not supported in this browser.');
+        } else {
+          setError(`Camera error: ${error.message}`);
+        }
+      } else {
+        setError('Failed to access camera. Please check permissions.');
+      }
+      return false;
+    }
+  };
+
+  const startScanning = async () => {
     if (!scannerWallet.trim()) {
       setError('Please enter scanner wallet address first');
       return;
@@ -73,9 +118,19 @@ const QRScanner: React.FC<QRScannerProps> = ({
       return;
     }
 
-    setIsScanning(true);
     setError(null);
+    setLoading(true);
+
+    // Request camera permission first
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) {
+      setLoading(false);
+      return;
+    }
+
+    setIsScanning(true);
     setScanResult(null);
+    setLoading(false);
 
     // Initialize scanner only when starting
     if (!scannerRef.current) {
@@ -94,14 +149,26 @@ const QRScanner: React.FC<QRScannerProps> = ({
       scannerRef.current = scanner;
     }
 
-    scannerRef.current.render(
-      (decodedText) => {
-        handleScanSuccess(decodedText);
-      },
-      (errorMessage) => {
-        console.log('QR Scan error:', errorMessage);
-      }
-    );
+    try {
+      scannerRef.current.render(
+        (decodedText) => {
+          handleScanSuccess(decodedText);
+        },
+        (errorMessage) => {
+          console.log('QR Scan error:', errorMessage);
+          // Don't show all scan errors to user, only critical ones
+          if (errorMessage.includes('permission') || errorMessage.includes('NotAllowed')) {
+            setError('Camera permission required. Please allow camera access.');
+            setIsScanning(false);
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Scanner initialization error:', error);
+      setError('Failed to start camera. Please check permissions and try again.');
+      setIsScanning(false);
+      setLoading(false);
+    }
   };
 
   const stopScanning = () => {
@@ -183,6 +250,8 @@ const QRScanner: React.FC<QRScannerProps> = ({
           disabled={isScanning}
         />
       </div>
+
+
 
       {/* Scanner controls */}
       <div className="scanner-controls">
