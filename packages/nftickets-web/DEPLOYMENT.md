@@ -6,7 +6,23 @@ When you deploy a Single Page Application (SPA) like our NFTickets scanner, dire
 
 ## ✅ Solutions by Platform
 
-### Vercel (Recommended)
+### Render (Recommended for this project)
+The `render.yaml` and `_redirects` files are already configured. Deploy options:
+
+**Option 1: Using render.yaml (Recommended)**
+1. Connect your GitHub repo to Render
+2. Render will automatically detect the `render.yaml` file
+3. Deploy as a Static Site
+
+**Option 2: Manual Configuration**
+1. Create a new Static Site on Render
+2. Set Build Command: `npm run build`
+3. Set Publish Directory: `dist`
+4. The `_redirects` file will handle SPA routing
+
+**Render will automatically handle SPA routing** ✅
+
+### Vercel
 The `vercel.json` file is already configured. Just deploy:
 
 ```bash
@@ -119,9 +135,13 @@ After deployment, test these URLs directly:
 
 ## 🚨 Common Issues
 
-### "File Download" Instead of Page
+### "File Download" Instead of Page (Especially on Render)
 - **Problem**: Server is serving routes as downloadable files
-- **Solution**: Add the routing configuration files above
+- **Solutions**:
+  1. **Check Render Settings**: Ensure you deployed as a "Static Site", not "Web Service"
+  2. **Verify Build Settings**: Build Command should be `npm run build`, Publish Directory should be `dist`
+  3. **Force Redeploy**: Sometimes Render needs a manual redeploy to pick up the `_redirects` file
+  4. **Check Logs**: In Render dashboard, check deployment logs for errors
 
 ### 404 Errors on Direct URLs
 - **Problem**: Server doesn't know about client-side routes
