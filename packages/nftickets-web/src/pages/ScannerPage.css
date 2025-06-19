@@ -2,7 +2,20 @@
 .scanner-page {
   width: 100%;
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   background: var(--bg-gradient);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Ensure the scanner page can scroll independently */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  /* Enable smooth scrolling on mobile */
+  -webkit-overflow-scrolling: touch;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 /* Desktop Message Styles */
@@ -11,8 +24,11 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   background: var(--bg-gradient);
   padding: 2rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .message-container {

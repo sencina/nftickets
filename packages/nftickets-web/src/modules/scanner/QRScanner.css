@@ -3,10 +3,19 @@
   max-width: 100%;
   margin: 0 auto;
   padding: 1rem;
-  background: var(--bg-gradient);
+  background: transparent; /* Let parent handle background */
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   color: var(--text-primary);
   font-family: 'Poppins', sans-serif;
+  /* Ensure content can scroll */
+  overflow-y: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* Allow content to expand naturally */
+  height: auto;
+  flex-shrink: 0;
 }
 
 .scanner-header {
@@ -265,8 +274,18 @@
 
 /* Mobile Responsive */
 @media (max-width: 480px) {
+  .scanner-page {
+    /* Ensure proper mobile scrolling */
+    -webkit-overflow-scrolling: touch;
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+
   .qr-scanner {
     padding: 0.5rem;
+    /* Allow content to expand beyond viewport */
+    min-height: auto;
+    height: auto;
   }
   
   .scanner-header h2 {
