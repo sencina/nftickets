@@ -11,6 +11,18 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0', // Allow external connections
       port: 5173
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            router: ['react-router-dom'],
+            qr: ['html5-qrcode', 'qrcode'],
+            utils: ['axios', 'ethers']
+          }
+        }
+      }
     }
   }
 })
