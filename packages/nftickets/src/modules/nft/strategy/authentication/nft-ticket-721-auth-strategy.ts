@@ -5,7 +5,7 @@ export class NFTicket721AuthStrategy implements AuthenticationStrategy {
   async authenticate(contract: Contract, data: AuthenticationData): Promise<AuthenticationResult> {
     try {
       // For token-specific authentication, use the authenticate function
-      if (data.tokenId && data.tokenId > 0) {
+      if (data.tokenId && data.tokenId >= 0) {
         const isAuthentic = await contract.authenticate(data.walletAddress, data.tokenId);
         return { isAuthenticated: isAuthentic };
       } else {
