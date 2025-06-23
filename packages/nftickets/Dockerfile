@@ -26,7 +26,8 @@ RUN npm install
 # Copy the rest of the application code to the container
 COPY . .
 
-# Generate Prisma client
+RUN npm run db:migrate
+
 RUN npm run db:generate
 
 # Build the project
