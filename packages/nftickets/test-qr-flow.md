@@ -2,7 +2,16 @@
 
 ## Overview
 
-The NFTickets system generates ticket images with **embedded QR codes** containing complete verification data. When a ticket is issued, the QR code is burned directly into the ticket image with all necessary information for verification.
+The NFTickets system generates ticket images with **encrypted QR codes** containing complete verification data. When a ticket is issued, the QR code is burned directly into the ticket image with encrypted information for secure verification.
+
+## 🔒 Security Enhancement: Encrypted QR Codes
+
+**Important Change**: QR codes now contain **encrypted data** instead of plain JSON for enhanced security:
+
+- **Encryption**: All QR code data is encrypted using AES-256-CBC before being encoded
+- **Server-side Decryption**: Only the server can decrypt QR code content during verification
+- **Tamper Prevention**: Encrypted data prevents unauthorized modification or cloning
+- **Privacy Protection**: Sensitive ticket information is not visible in plain text
 
 ## QR Code Integration
 
@@ -17,10 +26,11 @@ The NFTickets system generates ticket images with **embedded QR codes** containi
 2. **Offline Info**: Extract ticket details from QR data for offline display
 3. **Verification**: Scanner reads QR from image and verifies with API
 
-## Complete QR Code Data Structure
+## Encrypted QR Code Data Structure
 
-The QR code embedded in the ticket image contains **ALL** information needed for verification (with security considerations):
+The QR code embedded in the ticket image contains **encrypted** information with all data needed for verification:
 
+### Before Encryption (Server-side only):
 ```json
 {
   "tokenId": "1",
@@ -35,12 +45,18 @@ The QR code embedded in the ticket image contains **ALL** information needed for
 }
 ```
 
-### 🔒 **Security Note**: 
-The verification URL is **NOT included** in the QR code for security reasons:
-- Prevents information disclosure about server endpoints
-- Reduces enumeration attack surface
-- Scanner apps should have the verification endpoint pre-configured
-- The verification URL is still available in the metadata for reference
+### After Encryption (What's actually in the QR code):
+```
+eyJpdiI6IjEyMzQ1Njc4OTBhYmNkZWY...[base64 encrypted data]
+```
+
+### 🔐 **Enhanced Security**: 
+- **AES-256-CBC Encryption**: Military-grade encryption protects all ticket data
+- **Random IV**: Each QR code uses a unique initialization vector
+- **Base64 Encoding**: Encrypted data is safely encoded for QR compatibility
+- **Server-only Decryption**: Only the verification server can decrypt QR content
+- **No Plain Text**: All sensitive information is completely hidden
+- **Tamper-proof**: Any modification renders the QR code invalid
 
 ## Prerequisites
 
@@ -144,11 +160,11 @@ const displayInfo = extractTicketDisplayInfo(qrData);
 const verifyRequest = createVerificationRequest(qrData, scannerWallet);
 ```
 
-## Enhanced Error Handling
+## 🔒 Enhanced Error Handling with Contract-Level Validation
 
-The verification endpoint provides detailed error responses:
+The verification system now provides **contract-level validation** with specific error messages:
 
-### Success Response:
+### ✅ Success Response:
 ```json
 {
   "success": true,
@@ -165,31 +181,67 @@ The verification endpoint provides detailed error responses:
 }
 ```
 
-### Error Responses:
+### ❌ Error Responses:
+
+#### **Contract-Level Errors** (new):
 ```json
-// Invalid signature
+// Ticket already used (thrown by contract)
+{
+  "success": false,
+  "message": "Ticket has already been used",
+  "error": "TICKET_ALREADY_USED",
+  "eventName": "Test Concert"
+}
+
+// Ticket not owned by sender (thrown by contract)
+{
+  "success": false,
+  "message": "Ticket is not owned by the specified address",
+  "error": "TICKET_NOT_OWNED",
+  "eventName": "Test Concert"
+}
+
+// Ticket doesn't exist (thrown by contract)
+{
+  "success": false,
+  "message": "Ticket does not exist",
+  "error": "TICKET_NOT_EXISTS",
+  "eventName": "Test Concert"
+}
+```
+
+#### **Server-Level Errors**:
+```json
+// Invalid QR signature
 {
   "success": false,
   "message": "Invalid QR code signature",
   "error": "INVALID_SIGNATURE"
 }
 
-// Ticket already used
+// Encrypted QR validation errors
 {
   "success": false,
-  "message": "Ticket has already been used",
-  "error": "TICKET_ALREADY_USED",
-  "usedAt": "2023-06-19T09:15:00.000Z",
-  "usedBy": "0x..."
+  "message": "Invalid or corrupted encrypted QR code data",
+  "error": "INVALID_ENCRYPTED_QR"
 }
 
-// Authentication failed
+// General authentication failure
 {
   "success": false,
-  "message": "Ticket authentication failed - ticket not found or not owned by specified address",
-  "error": "AUTHENTICATION_FAILED"
+  "message": "Ticket authentication failed",
+  "error": "AUTHENTICATION_FAILED",
+  "eventName": "Test Concert"
 }
 ```
+
+### 🎯 **Key Improvements**:
+
+1. **Contract Enforcement**: Usage validation now happens at the smart contract level
+2. **Immediate Feedback**: Specific error messages for different failure scenarios
+3. **No Double Database Checks**: Contract handles usage tracking, reducing redundancy
+4. **Better UX**: Frontend can show specific error messages with appropriate icons
+5. **Tamper Resistance**: Contract-level validation prevents manipulation
 
 ## Error Scenarios to Test
 

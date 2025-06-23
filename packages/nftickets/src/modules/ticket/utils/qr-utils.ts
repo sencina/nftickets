@@ -1,4 +1,5 @@
 import { QRCodeData } from '../dto/qr-code.dto';
+import { decryptQRData, validateEncryptedQRData } from '@utils/encryption';
 
 /**
  * Parse QR code data from a scanned string
@@ -108,4 +109,55 @@ export function createVerificationRequest(qrData: QRCodeData, scannerAddress: st
     qrCodeData: qrData,
     scannerWalletAddress: scannerAddress,
   };
+}
+
+/**
+ * Parse encrypted QR code data from a scanned string
+ * @param encryptedQrString The encrypted string from QR code scan
+ * @returns Parsed QR code data object or null if invalid
+ */
+export function parseEncryptedQRCodeData(encryptedQrString: string): QRCodeData | null {
+  try {
+    // First validate that the encrypted data is valid
+    if (!validateEncryptedQRData(encryptedQrString)) {
+      console.error('Invalid encrypted QR code format');
+      return null;
+    }
+
+    // Decrypt the QR data
+    const decryptedData = decryptQRData(encryptedQrString);
+
+    // Validate the decrypted data structure
+    if (!validateQRCodeData(decryptedData)) {
+      console.error('Decrypted QR data has invalid structure');
+      return null;
+    }
+
+    return decryptedData as QRCodeData;
+  } catch (error) {
+    console.error('Failed to parse encrypted QR code data:', error);
+    return null;
+  }
+}
+
+/**
+ * Create a verification request payload from encrypted QR code data
+ * @param encryptedQrData The encrypted QR code data string
+ * @param scannerAddress The wallet address of the scanner
+ * @returns Request payload for verification endpoint
+ */
+export function createEncryptedVerificationRequest(encryptedQrData: string, scannerAddress: string) {
+  return {
+    qrCodeData: encryptedQrData, // Send encrypted data directly
+    scannerWalletAddress: scannerAddress,
+  };
+}
+
+/**
+ * Validate that a string represents valid encrypted QR data
+ * @param qrString The string to validate
+ * @returns Boolean indicating if string is valid encrypted QR data
+ */
+export function isValidEncryptedQRData(qrString: string): boolean {
+  return validateEncryptedQRData(qrString);
 }

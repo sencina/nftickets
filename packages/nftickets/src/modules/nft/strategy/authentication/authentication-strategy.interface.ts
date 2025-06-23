@@ -8,6 +8,7 @@ export interface AuthenticationData {
 
 export interface AuthenticationResult {
   isAuthenticated: boolean;
+  error?: string;
 }
 
 export interface AuthenticationStrategy {

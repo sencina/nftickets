@@ -2,21 +2,25 @@ import canvas, { createCanvas, loadImage } from 'canvas';
 import { IMAGE_HEIGHT, IMAGE_WIDTH, LAYER_DIR } from './utils/constants';
 import path from 'path';
 import { toDataURL } from 'qrcode';
+import { encryptQRData } from '../../utils/encryption';
 
 const generateQRCode = async (data: string | object): Promise<string> => {
-  // Convert object to JSON string if needed
-  const qrData = typeof data === 'object' ? JSON.stringify(data) : data;
-
   try {
-    const qrCode = await toDataURL(qrData, {
-      errorCorrectionLevel: 'H', // High error correction for better scanning
+    // Encrypt the QR data before encoding
+    const encryptedData = encryptQRData(data);
+
+    console.log('QR Data encrypted for ticket generation');
+
+    const qrCode = await toDataURL(encryptedData, {
+      errorCorrectionLevel: 'M', // Medium error correction - better balance between scanning and data density
       type: 'image/png',
-      margin: 2, // Slightly larger margin for better scanning
+      margin: 4, // Larger margin for better scanning
       color: {
-        dark: '#1a88ff', // Blue color to match the web interface
+        dark: '#000000', // Pure black for maximum contrast and readability
         light: '#FFFFFF', // Pure white background
       },
-      width: 400, // Higher resolution for better quality
+      width: 512, // Even higher resolution for better quality
+      scale: 8, // Higher scale for sharper rendering
     });
     return qrCode;
   } catch (error) {
@@ -93,24 +97,34 @@ export const generateImage = async (
   const qrCodeDataURL = await generateQRCode(qrCodeData);
   const qr = await loadImage(qrCodeDataURL);
 
-  // Position QR code in the center-top of the white card
-  const qrSize = 280;
+  // Position QR code in the center-top of the white card - increased size for better readability
+  const qrSize = 320;
   const qrX = (IMAGE_WIDTH - qrSize) / 2;
-  const qrY = cardY + 40;
+  const qrY = cardY + 30;
+
+  // Create white background for QR code with padding for better contrast
+  const qrPadding = 15;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(qrX - qrPadding, qrY - qrPadding, qrSize + qrPadding * 2, qrSize + qrPadding * 2);
+
+  // Add subtle border around QR code
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(qrX - qrPadding, qrY - qrPadding, qrSize + qrPadding * 2, qrSize + qrPadding * 2);
 
   // Draw QR code
   ctx.drawImage(qr, qrX, qrY, qrSize, qrSize);
 
-  // Event name styling
-  const eventY = qrY + qrSize + 50;
+  // Event name styling - adjusted for larger QR code
+  const eventY = qrY + qrSize + 45;
   ctx.font = 'bold 48px system-ui, -apple-system, sans-serif';
   ctx.fillStyle = '#000000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(eventName.toUpperCase(), IMAGE_WIDTH / 2, eventY);
 
-  // NFT badge with gradient background
-  const badgeY = eventY + 60;
+  // NFT badge with gradient background - more compact spacing
+  const badgeY = eventY + 50;
   const badgeWidth = 180;
   const badgeHeight = 50;
   const badgeX = (IMAGE_WIDTH - badgeWidth) / 2;

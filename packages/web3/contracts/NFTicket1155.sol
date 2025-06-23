@@ -300,9 +300,8 @@ contract NFTicket1155 is ERC1155Burnable, NFTicket {
      * @return True if the address owns the token and it hasn't been used yet
      */
     function authenticate(address sender, uint256 tokenId) external override returns (bool) {
-        if (balanceOf(sender, tokenId) == 0 || isAuthenticated[tokenId]) {
-            return false;
-        }
+        require(balanceOf(sender, tokenId) > 0, "Ticket not owned by sender");
+        require(!isAuthenticated[tokenId], "Ticket already used");
         
         isAuthenticated[tokenId] = true;
         return true;

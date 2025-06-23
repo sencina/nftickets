@@ -14,3 +14,6 @@ export const AZURE_KEY_VAULT_URL = process.env.AZURE_KEY_VAULT_URL || '';
 export const AZURE_TENANT_ID = process.env.AZURE_TENANT_ID || '';
 export const AZURE_CLIENT_ID = process.env.AZURE_CLIENT_ID || '';
 export const AZURE_CLIENT_SECRET = process.env.AZURE_CLIENT_SECRET || '';
+
+// QR Code Encryption
+export const QR_ENCRYPTION_KEY = process.env.QR_ENCRYPTION_KEY || 'default-key-for-development-only-32-chars';

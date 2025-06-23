@@ -487,7 +487,7 @@ export class EventService {
     eventId: string,
     walletAddress: string,
     tokenId: number
-  ): Promise<{ isAuthenticated: boolean; eventName?: string; sectorName?: string; sectorId?: number }> {
+  ): Promise<{ isAuthenticated: boolean; eventName?: string; sectorName?: string; sectorId?: number; error?: string }> {
     try {
       // Get event from database by ID
       const event = await this.repository.findById(eventId);
@@ -500,47 +500,70 @@ export class EventService {
       const contractType = event.contractType || DEFAULT_CONTRACT;
       const contract = this.getContractWithServerWallet(event.address, contractType);
 
-      // Get token owner
-      let tokenOwner: string;
+      // Try to authenticate the token directly with the contract
       try {
-        if (contractType === 'NFTicket721') {
-          tokenOwner = await contract.ownerOf(tokenId);
-        } else {
-          // For 1155, check if the wallet has balance > 0
-          const balance = await contract.balanceOf(walletAddress, tokenId);
-          tokenOwner = balance > 0 ? walletAddress : '';
+        const authResult = await contract.authenticate(walletAddress, tokenId);
+
+        if (authResult) {
+          // Get token metadata to find the sector
+          let sectorId: number;
+          try {
+            // Try to get sector info from the contract if available
+            sectorId = (await contract.getSectorByToken) ? await contract.getSectorByToken(tokenId) : 0;
+          } catch (error) {
+            console.error('Error getting token sector:', error);
+            sectorId = 0; // Default to first sector
+          }
+
+          // Find the sector by contract ID
+          const sector = event.sectors?.find((s) => s.contractSectorId === sectorId);
+
+          return {
+            isAuthenticated: true,
+            eventName: event.name,
+            sectorName: sector?.name || 'Unknown Sector',
+            sectorId: sectorId,
+          };
         }
-      } catch (error) {
-        console.error('Error checking token ownership:', error);
-        return { isAuthenticated: false };
+      } catch (contractError: any) {
+        console.error('Contract authentication error:', contractError);
+
+        // Handle specific contract errors
+        if (contractError.message) {
+          const errorMessage = contractError.message.toLowerCase();
+
+          if (errorMessage.includes('ticket already used')) {
+            return {
+              isAuthenticated: false,
+              error: 'TICKET_ALREADY_USED',
+              eventName: event.name,
+            };
+          } else if (errorMessage.includes('ticket not owned by sender')) {
+            return {
+              isAuthenticated: false,
+              error: 'TICKET_NOT_OWNED',
+              eventName: event.name,
+            };
+          } else if (
+            errorMessage.includes('erc721: invalid token id') ||
+            errorMessage.includes('token does not exist')
+          ) {
+            return {
+              isAuthenticated: false,
+              error: 'TICKET_NOT_EXISTS',
+              eventName: event.name,
+            };
+          }
+        }
+
+        return {
+          isAuthenticated: false,
+          error: 'CONTRACT_ERROR',
+          eventName: event.name,
+        };
       }
 
-      // Check if the wallet owns the token
-      if (tokenOwner.toLowerCase() !== walletAddress.toLowerCase()) {
-        return { isAuthenticated: false };
-      }
-
-      // Get token metadata to find the sector
-      let sectorId: number;
-      try {
-        const tokenURI = await contract.tokenURI(tokenId);
-        // Parse metadata to get sector info - this depends on your metadata structure
-        // For now, we'll try to get it from the contract if available
-        sectorId = (await contract.getTokenSector) ? await contract.getTokenSector(tokenId) : 0;
-      } catch (error) {
-        console.error('Error getting token metadata:', error);
-        sectorId = 0; // Default to first sector
-      }
-
-      // Find the sector by contract ID
-      const sector = event.sectors?.find((s) => s.contractSectorId === sectorId);
-
-      return {
-        isAuthenticated: true,
-        eventName: event.name,
-        sectorName: sector?.name || 'Unknown Sector',
-        sectorId: sectorId,
-      };
+      return { isAuthenticated: false };
     } catch (error) {
       console.error('Token authentication error:', error);
       return { isAuthenticated: false };

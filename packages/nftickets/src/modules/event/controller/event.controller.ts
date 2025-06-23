@@ -12,6 +12,7 @@ import { ValidationException } from '@utils/errors';
 import { Wallet } from 'ethers';
 import { ethers } from 'ethers';
 import { WALLET_PRIVATE_KEY } from '@env';
+import { decryptQRData, validateEncryptedQRData } from '@utils/encryption';
 
 export const eventRouter = Router();
 
@@ -193,7 +194,61 @@ eventRouter.post('/authenticate-ticket', apiKeyAuth, async (req, res) => {
 
 eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
   try {
-    const { qrCodeData, scannerWalletAddress } = req.body;
+    const { qrCodeData: encryptedQRData, scannerWalletAddress } = req.body;
+
+    // First, validate that we have encrypted QR data
+    if (!encryptedQRData || typeof encryptedQRData !== 'string') {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid QR code data format - expected encrypted string',
+        error: 'INVALID_QR_FORMAT',
+      });
+    }
+
+    // Validate that the encrypted data can be decrypted
+    if (!validateEncryptedQRData(encryptedQRData)) {
+      return res.status(httpStatus.BAD_REQUEST).json({
+        success: false,
+        message: 'Invalid or corrupted encrypted QR code data',
+        error: 'INVALID_ENCRYPTED_QR',
+      });
+    }
+
+    // Decrypt the QR code data
+    let qrCodeData;
+    try {
+      qrCodeData = decryptQRData(encryptedQRData);
+      console.log('QR code data successfully decrypted for verification');
+    } catch (error) {
+      console.error('Failed to decrypt QR code data:', error);
+      return res.status(httpStatus.BAD_REQUEST).json({
+        success: false,
+        message: 'Failed to decrypt QR code data',
+        error: 'DECRYPTION_FAILED',
+      });
+    }
+
+    // Validate that the decrypted data has all required fields
+    const requiredFields = [
+      'tokenId',
+      'contractAddress',
+      'eventId',
+      'eventName',
+      'sectorName',
+      'sectorId',
+      'ticketOwner',
+      'timestamp',
+      'signature',
+    ];
+    for (const field of requiredFields) {
+      if (!(field in qrCodeData)) {
+        return res.status(httpStatus.BAD_REQUEST).json({
+          success: false,
+          message: `Missing required field in QR code: ${field}`,
+          error: 'MISSING_QR_FIELD',
+        });
+      }
+    }
 
     // Verify signature - create the same message format used during signing
     const message = `Verify ticket:\nToken ID: ${qrCodeData.tokenId}\nContract: ${qrCodeData.contractAddress}\nEvent: ${qrCodeData.eventId}\nEvent Name: ${qrCodeData.eventName}\nSector: ${qrCodeData.sectorName}\nSector ID: ${qrCodeData.sectorId}\nOwner: ${qrCodeData.ticketOwner}\nTimestamp: ${qrCodeData.timestamp}`;
@@ -218,26 +273,39 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
     );
 
     if (!authResult.isAuthenticated) {
-      return res.status(httpStatus.UNAUTHORIZED).json({
-        success: false,
-        message: 'Ticket authentication failed - ticket not found or not owned by specified address',
-        error: 'AUTHENTICATION_FAILED',
-      });
+      // Handle specific contract errors
+      if (authResult.error === 'TICKET_ALREADY_USED') {
+        return res.status(httpStatus.CONFLICT).json({
+          success: false,
+          message: 'Ticket has already been used',
+          error: 'TICKET_ALREADY_USED',
+          eventName: authResult.eventName,
+        });
+      } else if (authResult.error === 'TICKET_NOT_OWNED') {
+        return res.status(httpStatus.UNAUTHORIZED).json({
+          success: false,
+          message: 'Ticket is not owned by the specified address',
+          error: 'TICKET_NOT_OWNED',
+          eventName: authResult.eventName,
+        });
+      } else if (authResult.error === 'TICKET_NOT_EXISTS') {
+        return res.status(httpStatus.NOT_FOUND).json({
+          success: false,
+          message: 'Ticket does not exist',
+          error: 'TICKET_NOT_EXISTS',
+          eventName: authResult.eventName,
+        });
+      } else {
+        return res.status(httpStatus.UNAUTHORIZED).json({
+          success: false,
+          message: 'Ticket authentication failed - ticket not found or not owned by specified address',
+          error: 'AUTHENTICATION_FAILED',
+          eventName: authResult.eventName,
+        });
+      }
     }
 
-    // Check if ticket has already been used
-    const ticket = await service.getTicketByTokenId(qrCodeData.tokenId);
-    if (ticket && ticket.is_used) {
-      return res.status(httpStatus.CONFLICT).json({
-        success: false,
-        message: 'Ticket has already been used',
-        error: 'TICKET_ALREADY_USED',
-        usedAt: ticket.used_at,
-        usedBy: ticket.used_by,
-      });
-    }
-
-    // Mark ticket as used in the database
+    // Mark ticket as used in the database (contract already validates usage)
     await service.markTicketAsUsed(qrCodeData.tokenId, qrCodeData.ticketOwner);
 
     // Log the verification for audit purposes

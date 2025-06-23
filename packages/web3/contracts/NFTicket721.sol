@@ -274,9 +274,8 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
         address sender,
         uint256 tokenId
     ) public returns (bool) {
-        if (ownerOf(tokenId) != sender || isAuthenticated[tokenId]) {
-            return false;
-        }
+        require(ownerOf(tokenId) == sender, "Ticket not owned by sender");
+        require(!isAuthenticated[tokenId], "Ticket already used");
         
         isAuthenticated[tokenId] = true;
         return true;

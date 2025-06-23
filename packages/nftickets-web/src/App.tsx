@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { BrowserProvider } from 'ethers';
-import { Link } from 'react-router-dom';
 import WalletConnector from './modules/auth/components/WalletConnector';
 import SignatureGenerator from './modules/auth/components/SignatureGenerator';
 import ApiKeyGenerator from './modules/auth/components/ApiKeyGenerator';
