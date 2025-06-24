@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:make-migrations": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "update-artifacts": "ts-node src/scripts/update-artifacts.ts"
+    "update-artifacts": "ts-node src/scripts/update-artifacts.ts",
+    "debug-ticket-state": "ts-node src/scripts/debug-ticket-state.ts"
   },
   "husky": {
     "hooks": {

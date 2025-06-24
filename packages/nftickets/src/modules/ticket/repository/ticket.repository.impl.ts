@@ -32,6 +32,24 @@ export class TicketRepository implements ITicketRepository {
     });
   }
 
+  async findByTokenIdAndEvent(tokenId: string, eventId: string): Promise<Ticket | null> {
+    return this.prisma.ticket.findFirst({
+      where: {
+        contract_token_id: tokenId,
+        sector: {
+          event_id: eventId,
+        },
+      },
+      include: {
+        sector: {
+          include: {
+            event: true,
+          },
+        },
+      },
+    });
+  }
+
   async findBySectorId(sectorId: string): Promise<Ticket[]> {
     return this.prisma.ticket.findMany({
       where: { sector_id: sectorId },

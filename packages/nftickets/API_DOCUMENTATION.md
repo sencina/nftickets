@@ -300,9 +300,20 @@ Issue a ticket for an event.
 {
   "tokenId": 1,
   "address": "0xcontractaddress...",
-  "ticketId": "ticket-uuid"
+  "ticketId": "ticket-uuid",
+  "qrCodeData": "eyJpdiI6IjEyMzQ1Njc4OTBhYmNkZWYiLCJlbmNyeXB0ZWQiOiJlbmNyeXB0ZWRfZGF0YV9oZXJlIn0="
 }
 ```
+
+**QR Code Data:**
+The `qrCodeData` field contains encrypted ticket information that can be used for QR code generation and verification. This data includes:
+- Token ID
+- Contract address
+- Event information
+- Sector details
+- Ticket owner address
+- Timestamp
+- Server signature for verification
 
 ### POST `/event/authenticate-ticket`
 Authenticate a ticket for an event sector.
@@ -494,6 +505,18 @@ curl -X POST http://localhost:3000/api/event/authenticate-ticket \
   }'
 ```
 
+### 5. Verify QR Code
+
+```bash
+curl -X POST http://localhost:3000/api/event/verify-qr \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key-here" \
+  -d '{
+    "qrCodeData": "eyJpdiI6IjEyMzQ1Njc4OTBhYmNkZWYiLCJlbmNyeXB0ZWQiOiJlbmNyeXB0ZWRfZGF0YV9oZXJlIn0=",
+    "scannerWalletAddress": "0x1234567890123456789012345678901234567890"
+  }'
+```
+
 ## Environment Configuration
 
 Required environment variables:
@@ -531,6 +554,84 @@ AZURE_KEYVAULT_URL=https://your-keyvault.vault.azure.net/
 - Binance Smart Chain
 - Custom networks (configure via RPC_URL)
 
+## Working with QR Codes
+
+### QR Code Data Structure
+
+When you issue a ticket, the API returns encrypted QR code data that contains:
+
+```json
+{
+  "tokenId": "1",
+  "contractAddress": "0xcontractaddress...",
+  "eventId": "event-uuid",
+  "eventName": "Concert 2024",
+  "sectorName": "VIP",
+  "sectorId": 0,
+  "ticketOwner": "0x1234567890123456789012345678901234567890",
+  "timestamp": 1640995200000,
+  "signature": "0xserver_signature..."
+}
+```
+
+### Using QR Code Data
+
+1. **Generate QR Code**: Use the encrypted `qrCodeData` string to generate a QR code image
+2. **Scan & Verify**: Use the `/event/verify-qr` endpoint to verify scanned QR codes
+3. **Security**: The data is encrypted and server-signed for authenticity
+
+### QR Code Generation Example
+
+```javascript
+// Frontend example using qrcode library
+import QRCode from 'qrcode';
+
+async function generateTicketQR(qrCodeData) {
+  try {
+    const qrCodeUrl = await QRCode.toDataURL(qrCodeData);
+    // Use qrCodeUrl as src for an <img> element
+    return qrCodeUrl;
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+  }
+}
+```
+
+### QR Code Verification
+
+The QR verification endpoint:
+- Decrypts the QR code data
+- Validates the server signature
+- Checks blockchain ownership and usage status
+- **Blockchain is the single source of truth** for ticket validity and usage
+- Database is updated for audit trail only
+
+## Authentication Architecture
+
+### Blockchain-First Approach
+
+NFTickets uses a **blockchain-first authentication model**:
+
+- ✅ **Smart Contract Authority**: The blockchain smart contract is the single source of truth for ticket validity and usage
+- ✅ **Decentralized Trust**: No dependency on database state for authentication decisions
+- ✅ **Tamper Proof**: Ticket usage is recorded immutably on the blockchain
+- ✅ **Consistent State**: Eliminates database/blockchain synchronization issues
+
+### How It Works
+
+1. **Ticket Issuance**: Creates NFT on blockchain + database record for metadata
+2. **Authentication**: Only checks blockchain contract state
+3. **Usage Validation**: Smart contract prevents double-use through `isAuthenticated` mapping
+4. **Database Updates**: Records usage for audit trail without validation
+5. **Database Role**: Audit trail and metadata storage only - never blocks authentication
+
+### Benefits
+
+- **Reliability**: No database sync issues
+- **Decentralization**: True blockchain-based verification
+- **Security**: Immutable usage tracking
+- **Simplicity**: Single source of truth
+
 ## Security Best Practices
 
 1. **Never expose private keys**: Use environment variables and secure storage
@@ -539,6 +640,8 @@ AZURE_KEYVAULT_URL=https://your-keyvault.vault.azure.net/
 4. **HTTPS only**: Use HTTPS in production environments
 5. **API key rotation**: Regularly rotate API keys
 6. **Input validation**: All inputs are validated using class-validator
+7. **QR Code Security**: QR codes are encrypted and server-signed to prevent tampering
+8. **Blockchain Trust**: Always rely on smart contract state for authentication decisions
 
 ## Support
 

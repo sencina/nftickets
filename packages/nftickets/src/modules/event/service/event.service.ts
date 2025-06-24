@@ -19,6 +19,7 @@ import { VERIFICATION_URL } from '../utils/constants';
 import { MintingStrategyFactory } from '@modules/nft/strategy/minting';
 import { AuthenticationStrategyFactory } from '@modules/nft/strategy/authentication';
 import { DeploymentStrategyFactory } from '@modules/nft/strategy/deployment';
+import { encryptQRData } from '@utils/encryption';
 
 interface TransferStrategyNormal {
   type: 'NORMAL';
@@ -197,7 +198,7 @@ export class EventService {
     urlMetadata: { host: string; protocol: string },
     signature?: string,
     transferStrategy?: TransferStrategy
-  ): Promise<{ tokenId: number; address: string; ticketId: string }> {
+  ): Promise<{ tokenId: number; address: string; ticketId: string; qrCodeData: string }> {
     const event = await this.repository.findById(eventId);
     if (!event) {
       throw new NotFoundException(eventId);
@@ -344,10 +345,14 @@ export class EventService {
         transfer_strategy_data: transferStrategyData,
       });
 
+      // Encrypt QR code data for response
+      const encryptedQRData = encryptQRData(qrCodeData);
+
       return {
         tokenId: Number(currentTokenId),
         address: eventAddress,
         ticketId: ticket.id,
+        qrCodeData: encryptedQRData,
       };
     } catch (error) {
       console.error('Error issuing ticket:', error);
@@ -461,22 +466,43 @@ export class EventService {
     return result.events;
   }
 
-  async markTicketAsUsed(tokenId: string, walletAddress: string): Promise<boolean> {
+  /**
+   * Update database record when ticket is used - for audit trail only
+   * This method updates the database record but performs NO validation
+   * The smart contract is the single source of truth for ticket usage validation
+   */
+  async markTicketAsUsed(tokenId: string, walletAddress: string, eventId?: string): Promise<boolean> {
     try {
-      const ticket = await this.ticketRepository.findByTokenId(tokenId);
+      let ticket;
+
+      if (eventId) {
+        // Use the more precise search with event ID to avoid token ID collisions
+        ticket = await this.ticketRepository.findByTokenIdAndEvent(tokenId, eventId);
+      } else {
+        // Fallback to the old method for backward compatibility
+        ticket = await this.ticketRepository.findByTokenId(tokenId);
+      }
+
       if (!ticket) {
-        throw new Error('Ticket not found');
+        // Ticket not found in database - this is okay since blockchain already validated
+        console.log(`Token ID ${tokenId} not found in database - updating audit trail skipped`);
+        return true;
       }
 
-      if (ticket.is_used) {
-        throw new Error('Ticket has already been used');
+      if (ticket.is_used === true) {
+        throw new ValidationException([{ message: 'Ticket has already been used' }]);
       }
 
+      // Update database record for audit trail - no validation, just update
+      console.log(`Updating database audit record for token ID ${tokenId} in event ${eventId || 'unknown'}`);
       await this.ticketRepository.markAsUsed(ticket.id, walletAddress);
+      console.log(`Database audit record updated: token ${tokenId} marked as used by ${walletAddress}`);
+
       return true;
     } catch (error) {
-      console.error('Error marking ticket as used:', error);
-      throw error;
+      console.error(`Failed to update database audit record for token ${tokenId}:`, error);
+      // Never fail - blockchain validation already passed, database is just for audit
+      return true;
     }
   }
 
@@ -573,7 +599,10 @@ export class EventService {
   /**
    * Get ticket by token ID
    */
-  async getTicketByTokenId(tokenId: string) {
+  async getTicketByTokenId(tokenId: string, eventId?: string) {
+    if (eventId) {
+      return this.ticketRepository.findByTokenIdAndEvent(tokenId, eventId);
+    }
     return this.ticketRepository.findByTokenId(tokenId);
   }
 }

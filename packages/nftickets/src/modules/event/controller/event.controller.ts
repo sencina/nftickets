@@ -99,7 +99,7 @@ eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), as
     }
   }
 
-  const { tokenId, address, ticketId } = await service.issueTicket(
+  const { tokenId, address, ticketId, qrCodeData } = await service.issueTicket(
     walletAddress,
     eventId,
     sectorName,
@@ -107,7 +107,7 @@ eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), as
     signature,
     transferStrategy
   );
-  res.status(httpStatus.CREATED).json({ tokenId, address, ticketId });
+  res.status(httpStatus.CREATED).json({ tokenId, address, ticketId, qrCodeData });
 });
 
 // Add a route to get event details
@@ -305,8 +305,9 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
       }
     }
 
-    // Mark ticket as used in the database (contract already validates usage)
-    await service.markTicketAsUsed(qrCodeData.tokenId, qrCodeData.ticketOwner);
+    // Update database record for audit trail (blockchain is the authoritative source)
+    console.log('Blockchain authentication successful - updating database record for audit');
+    await service.markTicketAsUsed(qrCodeData.tokenId, qrCodeData.ticketOwner, qrCodeData.eventId);
 
     // Log the verification for audit purposes
     console.log(`Ticket verified successfully:`, {

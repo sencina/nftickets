@@ -14,6 +14,8 @@ export interface ITicketRepository {
 
   findByTokenId(tokenId: string): Promise<Ticket | null>;
 
+  findByTokenIdAndEvent(tokenId: string, eventId: string): Promise<Ticket | null>;
+
   findBySectorId(sectorId: string): Promise<Ticket[]>;
 
   updateTokenId(id: string, contractTokenId: string): Promise<Ticket>;
