@@ -25,6 +25,9 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) => {
       setConnecting(true);
       setError(null);
 
+      // Clear logout flag since user is manually connecting
+      localStorage.removeItem('nftickets_logged_out');
+
       // Request wallet connections
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const address = accounts[0];
@@ -43,9 +46,16 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) => {
     }
   };
 
-  // Check if already connected on component mount
+  // Check if already connected on component mount (only if not explicitly logged out)
   useEffect(() => {
     const checkConnection = async () => {
+      // Check if user explicitly logged out
+      const hasLoggedOut = localStorage.getItem('nftickets_logged_out');
+      if (hasLoggedOut === 'true') {
+        // Don't auto-connect if user logged out
+        return;
+      }
+
       if (isMetaMaskInstalled()) {
         try {
           const accounts = await window.ethereum.request({ method: 'eth_accounts' });
@@ -63,8 +73,41 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) => {
     checkConnection();
   }, [onConnect]);
 
+  // Check if user has previous session data
+  const hasPreviousSession = () => {
+    return localStorage.getItem('nftickets_api_key') || 
+           localStorage.getItem('nftickets_signature') || 
+           localStorage.getItem('nftickets_message');
+  };
+
+  const restorePreviousSession = () => {
+    // Clear logout flag to restore previous session
+    localStorage.removeItem('nftickets_logged_out');
+    // Force a page reload to restore the session
+    window.location.reload();
+  };
+
+  const wasLoggedOut = localStorage.getItem('nftickets_logged_out') === 'true';
+
   return (
     <div className="wallet-connector">
+      {wasLoggedOut && hasPreviousSession() && (
+        <div className="session-restore">
+          <p className="session-message">
+            You have a previous authenticated session.
+          </p>
+          <button 
+            onClick={restorePreviousSession}
+            className="restore-button"
+          >
+            Continue with Previous Session
+          </button>
+          <div className="separator">
+            <span>or</span>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="error-message">
           <p>{error}</p>
@@ -90,7 +133,9 @@ const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) => {
           ? 'Connecting...' 
           : connected 
             ? 'Wallet Connected' 
-            : 'Connect Wallet'}
+            : wasLoggedOut && hasPreviousSession() 
+              ? 'Start New Session' 
+              : 'Connect Wallet'}
       </button>
     </div>
   );

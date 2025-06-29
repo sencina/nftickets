@@ -110,6 +110,60 @@ eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), as
   res.status(httpStatus.CREATED).json({ tokenId, address, ticketId, qrCodeData });
 });
 
+// Analytics endpoints for dashboard graphs (put before parameterized routes)
+
+// Get scan analytics for all events created by a specific creator (public endpoint)
+eventRouter.get('/creator/:creatorAddress/scan-analytics', async (req, res) => {
+  try {
+    const walletAddress = req.params.creatorAddress;
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+    const timeRange = startDate && endDate ? { startDate, endDate } : undefined;
+    const analytics = await service.getCreatorScanAnalytics(walletAddress, timeRange);
+
+    res.status(httpStatus.OK).json(analytics);
+  } catch (error) {
+    console.error('Error getting creator scan analytics:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      message: error instanceof Error ? error.message : 'Failed to get creator scan analytics',
+    });
+  }
+});
+
+// Get peak scan times for dashboard graphs (creator-specific, public endpoint)
+eventRouter.get('/creator/:creatorAddress/peak-times', async (req, res) => {
+  try {
+    const walletAddress = req.params.creatorAddress;
+    const days = parseInt(req.query.days as string) || 7; // Default to last 7 days
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - days);
+
+    const analytics = await service.getCreatorScanAnalytics(walletAddress, { startDate, endDate });
+
+    // Format data specifically for peak times graph
+    const peakTimesData = {
+      peakHours: analytics.peakHours.sort((a, b) => b.scans - a.scans), // Sort by scan count descending
+      totalScans: analytics.totalScans,
+      successRate: analytics.successRate,
+      timeRange: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        days: days,
+      },
+    };
+
+    res.status(httpStatus.OK).json(peakTimesData);
+  } catch (error) {
+    console.error('Error getting peak times:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      message: error instanceof Error ? error.message : 'Failed to get peak scan times',
+    });
+  }
+});
+
 // Add a route to get event details
 eventRouter.get('/:id', async (req, res) => {
   const eventId = req.params.id;
@@ -221,6 +275,21 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
       console.log('QR code data successfully decrypted for verification');
     } catch (error) {
       console.error('Failed to decrypt QR code data:', error);
+
+      // Log failed scan attempt
+      try {
+        await service.logScan({
+          eventId: 'unknown',
+          tokenId: 'unknown',
+          contractAddress: 'unknown',
+          scannerAddress: scannerWalletAddress,
+          scanResult: 'FAILED',
+          errorCode: 'DECRYPTION_FAILED',
+        });
+      } catch (logError) {
+        console.error('Failed to log scan attempt:', logError);
+      }
+
       return res.status(httpStatus.BAD_REQUEST).json({
         success: false,
         message: 'Failed to decrypt QR code data',
@@ -242,6 +311,18 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
     ];
     for (const field of requiredFields) {
       if (!(field in qrCodeData)) {
+        // Log invalid scan attempt
+        await service.logScan({
+          eventId: qrCodeData.eventId || 'unknown',
+          tokenId: qrCodeData.tokenId || 'unknown',
+          contractAddress: qrCodeData.contractAddress || 'unknown',
+          scannerAddress: scannerWalletAddress,
+          ticketOwner: qrCodeData.ticketOwner,
+          sectorName: qrCodeData.sectorName,
+          scanResult: 'INVALID',
+          errorCode: 'MISSING_QR_FIELD',
+        });
+
         return res.status(httpStatus.BAD_REQUEST).json({
           success: false,
           message: `Missing required field in QR code: ${field}`,
@@ -258,6 +339,18 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
 
     // Verify server signed it
     if (recoveredAddress.toLowerCase() !== serverWallet.address.toLowerCase()) {
+      // Log invalid signature scan
+      await service.logScan({
+        eventId: qrCodeData.eventId,
+        tokenId: qrCodeData.tokenId,
+        contractAddress: qrCodeData.contractAddress,
+        scannerAddress: scannerWalletAddress,
+        ticketOwner: qrCodeData.ticketOwner,
+        sectorName: qrCodeData.sectorName,
+        scanResult: 'INVALID',
+        errorCode: 'INVALID_SIGNATURE',
+      });
+
       return res.status(httpStatus.UNAUTHORIZED).json({
         success: false,
         message: 'Invalid QR code signature',
@@ -273,6 +366,27 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
     );
 
     if (!authResult.isAuthenticated) {
+      // Log failed scan with specific error
+      let errorCode = 'AUTHENTICATION_FAILED';
+      if (authResult.error === 'TICKET_ALREADY_USED') {
+        errorCode = 'TICKET_ALREADY_USED';
+      } else if (authResult.error === 'TICKET_NOT_OWNED') {
+        errorCode = 'TICKET_NOT_OWNED';
+      } else if (authResult.error === 'TICKET_NOT_EXISTS') {
+        errorCode = 'TICKET_NOT_EXISTS';
+      }
+
+      await service.logScan({
+        eventId: qrCodeData.eventId,
+        tokenId: qrCodeData.tokenId,
+        contractAddress: qrCodeData.contractAddress,
+        scannerAddress: scannerWalletAddress,
+        ticketOwner: qrCodeData.ticketOwner,
+        sectorName: qrCodeData.sectorName,
+        scanResult: authResult.error === 'TICKET_ALREADY_USED' ? 'ALREADY_USED' : 'FAILED',
+        errorCode: errorCode,
+      });
+
       // Handle specific contract errors
       if (authResult.error === 'TICKET_ALREADY_USED') {
         return res.status(httpStatus.CONFLICT).json({
@@ -309,6 +423,17 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
     console.log('Blockchain authentication successful - updating database record for audit');
     await service.markTicketAsUsed(qrCodeData.tokenId, qrCodeData.ticketOwner, qrCodeData.eventId);
 
+    // Log successful scan
+    await service.logScan({
+      eventId: qrCodeData.eventId,
+      tokenId: qrCodeData.tokenId,
+      contractAddress: qrCodeData.contractAddress,
+      scannerAddress: scannerWalletAddress,
+      ticketOwner: qrCodeData.ticketOwner,
+      sectorName: qrCodeData.sectorName,
+      scanResult: 'SUCCESS',
+    });
+
     // Log the verification for audit purposes
     console.log(`Ticket verified successfully:`, {
       tokenId: qrCodeData.tokenId,
@@ -338,6 +463,74 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to verify QR code',
       error: 'INTERNAL_ERROR',
+    });
+  }
+});
+
+// Dashboard endpoints for creator-specific analytics
+
+// Get events created by a specific creator (public endpoint)
+eventRouter.get('/creator/:creatorAddress/events', async (req, res) => {
+  try {
+    const walletAddress = req.params.creatorAddress;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const result = await service.getEventsByCreator(walletAddress, page, limit);
+    res.status(httpStatus.OK).json(result);
+  } catch (error) {
+    console.error('Error getting user events:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      message: error instanceof Error ? error.message : 'Failed to get user events',
+    });
+  }
+});
+
+// Get creator statistics for a specific creator (public endpoint)
+eventRouter.get('/creator/:creatorAddress/stats', async (req, res) => {
+  try {
+    const walletAddress = req.params.creatorAddress;
+    const stats = await service.getCreatorStats(walletAddress);
+    res.status(httpStatus.OK).json(stats);
+  } catch (error) {
+    console.error('Error getting creator stats:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      message: error instanceof Error ? error.message : 'Failed to get creator statistics',
+    });
+  }
+});
+
+// Get detailed event statistics for a specific event (only if user created it)
+eventRouter.get('/:eventId/stats', async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+
+    // Get event stats
+    const stats = await service.getEventStats(eventId);
+    res.status(httpStatus.OK).json(stats);
+  } catch (error) {
+    console.error('Error getting event stats:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      message: error instanceof Error ? error.message : 'Failed to get event statistics',
+    });
+  }
+});
+
+// Get scan analytics for a specific event (only accessible by event creator)
+eventRouter.get('/:eventId/scan-analytics', async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+    const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+    const timeRange = startDate && endDate ? { startDate, endDate } : undefined;
+    const analytics = await service.getScanAnalytics(eventId, timeRange);
+
+    res.status(httpStatus.OK).json(analytics);
+  } catch (error) {
+    console.error('Error getting scan analytics:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      message: error instanceof Error ? error.message : 'Failed to get scan analytics',
     });
   }
 });

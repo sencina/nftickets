@@ -6,6 +6,7 @@ interface ApiKeyGeneratorProps {
   signature: string;
   message: string;
   apiUrl?: string;
+  onApiKeyGenerated?: (apiKey: string) => void;
 }
 
 // Validation error types
@@ -29,7 +30,8 @@ const ApiKeyGenerator: React.FC<ApiKeyGeneratorProps> = ({
   walletAddress,
   signature,
   message,
-  apiUrl = DEFAULT_API_URL
+  apiUrl = DEFAULT_API_URL,
+  onApiKeyGenerated
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,7 @@ const ApiKeyGenerator: React.FC<ApiKeyGeneratorProps> = ({
 
       if (response.data.apiKey) {
         setApiKey(response.data.apiKey);
+        onApiKeyGenerated?.(response.data.apiKey);
       } else {
         throw new Error('No API key in response');
       }

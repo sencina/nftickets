@@ -118,6 +118,10 @@ export class CreateEventDTO {
   @IsOptional()
   metadata_hash?: string;
 
+  @IsString()
+  @IsOptional()
+  creator_wallet_address?: string;
+
   @IsNumber()
   @IsPositive()
   @IsOptional()
@@ -130,6 +134,7 @@ export class CreateEventDTO {
     contractType?: string,
     address?: string,
     metadata_hash?: string,
+    creator_wallet_address?: string,
     maxMintPerTransaction?: number
   ) {
     this.name = name;
@@ -138,6 +143,7 @@ export class CreateEventDTO {
     this.contractType = contractType || DEFAULT_CONTRACT;
     this.address = address;
     this.metadata_hash = metadata_hash;
+    this.creator_wallet_address = creator_wallet_address;
     this.maxMintPerTransaction = maxMintPerTransaction;
   }
 }
@@ -186,6 +192,9 @@ export class EventDTO {
   @IsOptional()
   contractType?: string;
 
+  @IsString()
+  creator_wallet_address: string;
+
   @IsDate()
   @IsOptional()
   start_date?: Date;
@@ -207,6 +216,7 @@ export class EventDTO {
     description: string,
     address: string,
     metadata_hash: string,
+    creator_wallet_address: string,
     created_at: Date,
     start_date?: Date,
     end_date?: Date,
@@ -218,6 +228,7 @@ export class EventDTO {
     this.description = description;
     this.address = address;
     this.metadata_hash = metadata_hash;
+    this.creator_wallet_address = creator_wallet_address;
     this.created_at = created_at;
     this.start_date = start_date;
     this.end_date = end_date;
@@ -233,6 +244,7 @@ export class EventDTO {
       event.description,
       event.address,
       event.metadata_hash,
+      event.creator_wallet_address,
       event.created_at,
       event.start_date,
       event.end_date,

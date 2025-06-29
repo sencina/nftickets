@@ -106,10 +106,9 @@ export class EventService {
     // Use the contract type from the event if provided, otherwise use the default
     const contractType = event.contractType || this.defaultContractType;
 
-    const hash = await uploadMetadata({
-      name: event.name,
-      description: event.description,
-    });
+    // Skip metadata upload during event creation - contracts don't need it
+    // Metadata will be uploaded when minting individual tickets
+    const hash = ''; // Use empty hash for now
 
     // Get the correct contract config based on the contract type
     const contractConfig = getContractConfig(contractType);
@@ -146,6 +145,7 @@ export class EventService {
         sectors: sectorsWithIds,
         address,
         metadata_hash: hash,
+        creator_wallet_address: walletAddress || '', // Store the creator's wallet address
         contractType, // Store the event-specific contract type in the database
       });
 
@@ -464,6 +464,148 @@ export class EventService {
   async getAllEvents(): Promise<EventDTO[]> {
     const result = await this.repository.findAll(1, 1000); // Get first 1000 events
     return result.events;
+  }
+
+  /**
+   * Get events created by a specific wallet address
+   */
+  async getEventsByCreator(
+    creatorWalletAddress: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ events: EventDTO[]; total: number }> {
+    return this.repository.findByCreator(creatorWalletAddress, page, limit);
+  }
+
+  /**
+   * Get statistics for a specific creator
+   */
+  async getCreatorStats(creatorWalletAddress: string): Promise<{
+    totalEvents: number;
+    totalSectors: number;
+    totalTickets: number;
+    usedTickets: number;
+    usageRate: number;
+  }> {
+    const stats = await this.repository.getCreatorStats(creatorWalletAddress);
+    return {
+      ...stats,
+      usageRate: stats.totalTickets > 0 ? (stats.usedTickets / stats.totalTickets) * 100 : 0,
+    };
+  }
+
+  /**
+   * Get detailed statistics for a specific event
+   */
+  async getEventStats(eventId: string): Promise<{
+    totalTickets: number;
+    usedTickets: number;
+    usageRate: number;
+    sectorStats: Array<{
+      sectorName: string;
+      capacity: number;
+      ticketsSold: number;
+      ticketsUsed: number;
+      usageRate: number;
+      fillRate: number;
+    }>;
+  }> {
+    const stats = await this.repository.getEventStats(eventId);
+    return {
+      totalTickets: stats.totalTickets,
+      usedTickets: stats.usedTickets,
+      usageRate: stats.totalTickets > 0 ? (stats.usedTickets / stats.totalTickets) * 100 : 0,
+      sectorStats: stats.sectorStats.map((sector) => ({
+        ...sector,
+        usageRate: sector.ticketsSold > 0 ? (sector.ticketsUsed / sector.ticketsSold) * 100 : 0,
+        fillRate: sector.capacity > 0 ? (sector.ticketsSold / sector.capacity) * 100 : 0,
+      })),
+    };
+  }
+
+  /**
+   * Log a scan attempt for analytics
+   */
+  async logScan(scanData: {
+    eventId: string;
+    tokenId: string;
+    contractAddress: string;
+    scannerAddress?: string;
+    ticketOwner?: string;
+    sectorName?: string;
+    scanResult: 'SUCCESS' | 'FAILED' | 'INVALID' | 'ALREADY_USED';
+    errorCode?: string;
+    locationInfo?: Record<string, any>;
+  }): Promise<void> {
+    try {
+      await this.repository.logScan(scanData);
+    } catch (error) {
+      console.error('Failed to log scan attempt:', error);
+      // Don't throw - logging shouldn't fail the scan operation
+    }
+  }
+
+  /**
+   * Get scan analytics for a specific event
+   */
+  async getScanAnalytics(
+    eventId: string,
+    timeRange?: {
+      startDate: Date;
+      endDate: Date;
+    }
+  ): Promise<{
+    totalScans: number;
+    successfulScans: number;
+    failedScans: number;
+    successRate: number;
+    hourlyData: Array<{
+      hour: number;
+      scans: number;
+      successful: number;
+      failed: number;
+    }>;
+    dailyData: Array<{
+      date: string;
+      scans: number;
+      successful: number;
+      failed: number;
+    }>;
+    sectorBreakdown: Array<{
+      sectorName: string;
+      scans: number;
+      successRate: number;
+    }>;
+  }> {
+    return this.repository.getScanAnalytics(eventId, timeRange);
+  }
+
+  /**
+   * Get scan analytics for all events created by a specific wallet
+   */
+  async getCreatorScanAnalytics(
+    creatorWalletAddress: string,
+    timeRange?: {
+      startDate: Date;
+      endDate: Date;
+    }
+  ): Promise<{
+    totalScans: number;
+    successfulScans: number;
+    failedScans: number;
+    successRate: number;
+    eventBreakdown: Array<{
+      eventId: string;
+      eventName: string;
+      scans: number;
+      successRate: number;
+    }>;
+    peakHours: Array<{
+      hour: number;
+      scans: number;
+    }>;
+  }> {
+    return this.repository.getCreatorScanAnalytics(creatorWalletAddress, timeRange);
   }
 
   /**
