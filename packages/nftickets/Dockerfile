@@ -26,8 +26,7 @@ RUN npm install
 # Copy the rest of the application code to the container
 COPY . .
 
-RUN npm run db:migrate
-
+# Generate Prisma client
 RUN npm run db:generate
 
 # Build the project
@@ -36,5 +35,9 @@ RUN npm run build
 # Expose the port the app will run on
 EXPOSE 8080
 
-# Start the app using tsx directly
-CMD ["tsx", "./src/index.ts"]
+# Create a startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Start the app using the startup script
+CMD ["/app/start.sh"]
