@@ -132,17 +132,82 @@
   font-size: 0.875rem;
 }
 
+.success-content {
+  padding: 20px;
+}
+
 .success-message {
   display: flex;
   align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: #10B981;
+}
+
+.success-icon {
+  background-color: #D1FAE5;
+  padding: 8px;
+  border-radius: 50%;
+}
+
+.token-info {
+  background-color: #F3F4F6;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.info-group {
+  margin-bottom: 15px;
+}
+
+.info-group label {
+  display: block;
+  font-size: 0.9em;
+  color: #4B5563;
+  margin-bottom: 5px;
+}
+
+.copy-field {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-field input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  background-color: white;
+  font-family: monospace;
+  color: #374151;
+}
+
+.copy-button {
+  background-color: #F3F4F6;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 1rem;
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 0.75rem;
-  color: #10b981;
-  margin-bottom: 1.5rem;
-  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.copy-button:hover {
+  background-color: #E5E7EB;
+}
+
+.copy-button:active {
+  background-color: #D1D5DB;
+}
+
+.import-instructions {
+  font-size: 0.9em;
+  color: #6B7280;
+  margin-top: 15px;
+  text-align: center;
 }
 
 .modal-footer {

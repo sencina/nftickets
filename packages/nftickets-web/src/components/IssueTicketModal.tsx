@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Ticket, AlertCircle } from 'lucide-react';
+import { X, Ticket, AlertCircle, Copy, Check } from 'lucide-react';
 import './IssueTicketModal.css';
 
 interface Sector {
@@ -43,8 +43,22 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
+  const [copyStatus, setCopyStatus] = useState<{ [key: string]: boolean }>({});
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus(prev => ({ ...prev, [field]: true }));
+      setTimeout(() => {
+        setCopyStatus(prev => ({ ...prev, [field]: false }));
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
 
   const addTokenToMetaMask = async (tokenData: TokenResponse) => {
     try {
@@ -121,6 +135,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
       }
 
       const tokenData: TokenResponse = await response.json();
+      setTokenData(tokenData);
       setSuccess(true);
 
       // Add token to MetaMask
@@ -129,9 +144,6 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
       if (onSuccess) {
         onSuccess();
       }
-      setTimeout(() => {
-        onClose();
-      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
@@ -156,71 +168,114 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-content">
-          <div className="form-group">
-            <label htmlFor="sector">Sector</label>
-            <select
-              id="sector"
-              value={selectedSector}
-              onChange={(e) => setSelectedSector(e.target.value)}
-              required
-              disabled={isLoading}
-            >
-              <option value="">Select a sector</option>
-              {event.sectors?.map((sector) => (
-                <option key={sector.id} value={sector.name}>
-                  {sector.name} - {sector.capacity} seats
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="recipient">Recipient Wallet Address</label>
-            <input
-              id="recipient"
-              type="text"
-              value={recipientAddress}
-              onChange={(e) => setRecipientAddress(e.target.value)}
-              placeholder="0x..."
-              required
-              pattern="^0x[a-fA-F0-9]{40}$"
-              title="Please enter a valid Ethereum address"
-              disabled={isLoading}
-            />
-          </div>
-
-          {error && (
-            <div className="error-message">
-              <AlertCircle size={16} />
-              {error}
+        {!success ? (
+          <form onSubmit={handleSubmit} className="modal-content">
+            <div className="form-group">
+              <label htmlFor="sector">Sector</label>
+              <select
+                id="sector"
+                value={selectedSector}
+                onChange={(e) => setSelectedSector(e.target.value)}
+                required
+                disabled={isLoading}
+              >
+                <option value="">Select a sector</option>
+                {event.sectors?.map((sector) => (
+                  <option key={sector.id} value={sector.name}>
+                    {sector.name} - {sector.capacity} seats
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
 
-          {success && (
+            <div className="form-group">
+              <label htmlFor="recipient">Recipient Wallet Address</label>
+              <input
+                id="recipient"
+                type="text"
+                value={recipientAddress}
+                onChange={(e) => setRecipientAddress(e.target.value)}
+                placeholder="0x..."
+                required
+                pattern="^0x[a-fA-F0-9]{40}$"
+                title="Please enter a valid Ethereum address"
+                disabled={isLoading}
+              />
+            </div>
+
+            {error && (
+              <div className="error-message">
+                <AlertCircle size={16} />
+                {error}
+              </div>
+            )}
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={onClose}
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-submit"
+                disabled={isLoading || !selectedSector || !recipientAddress}
+              >
+                {isLoading ? 'Issuing Ticket...' : 'Issue Ticket'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="success-content">
             <div className="success-message">
-              Ticket issued successfully!
+              <Check size={24} className="success-icon" />
+              <p>Ticket issued successfully!</p>
             </div>
-          )}
 
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="btn-cancel"
-              onClick={onClose}
-              disabled={isLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn-submit"
-              disabled={isLoading || !selectedSector || !recipientAddress}
-            >
-              {isLoading ? 'Issuing...' : 'Issue Ticket'}
-            </button>
+            <div className="token-info">
+              <div className="info-group">
+                <label>Contract Address:</label>
+                <div className="copy-field">
+                  <input type="text" value={tokenData?.address} readOnly />
+                  <button 
+                    onClick={() => copyToClipboard(tokenData?.address || '', 'address')}
+                    className="copy-button"
+                    title="Copy address"
+                  >
+                    {copyStatus['address'] ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="info-group">
+                <label>Token ID:</label>
+                <div className="copy-field">
+                  <input type="text" value={tokenData?.tokenId} readOnly />
+                  <button 
+                    onClick={() => copyToClipboard(tokenData?.tokenId.toString() || '', 'tokenId')}
+                    className="copy-button"
+                    title="Copy token ID"
+                  >
+                    {copyStatus['tokenId'] ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <p className="import-instructions">
+                You can use these details to manually import the NFT in MetaMask if needed.
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-submit" onClick={onClose}>
+                Close
+              </button>
+            </div>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );
