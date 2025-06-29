@@ -10,6 +10,24 @@ import {
 } from 'lucide-react';
 import './EventDetailModal.css';
 
+// Function to format hour in Argentina timezone (UTC-3)
+const formatArgentinaHour = (hour: number) => {
+  // Convert to Argentina time (UTC-3)
+  const argentinaHour = (hour - 3 + 24) % 24;
+  return `${argentinaHour.toString().padStart(2, '0')}:00`;
+};
+
+// Function to format date in Argentina timezone
+const formatArgentinaDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+};
+
 interface EventDetailModalProps {
   event: {
     id: string;
@@ -144,17 +162,12 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClose }) =
         <div className="modal-header">
           <div className="header-content">
             <h2>{event.name}</h2>
-            <p className="event-meta">
-              <Calendar size={16} />
-              Created: {new Date(event.created_at).toLocaleDateString()}
-              {event.start_date && (
-                <>
-                  <span className="divider">•</span>
-                  <Calendar size={16} />
-                  Event: {new Date(event.start_date).toLocaleDateString()}
-                </>
-              )}
-            </p>
+            <div className="event-meta">
+              <span className="meta-item">
+                <Calendar size={14} />
+                {formatArgentinaDate(event.created_at)}
+              </span>
+            </div>
           </div>
           <button onClick={onClose} className="close-btn">
             <X size={24} />
@@ -374,18 +387,18 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ event, onClose }) =
               {scanAnalytics && scanAnalytics.totalScans > 0 && (
                 <div className="scan-charts">
                   <div className="chart-container">
-                    <h4>Hourly Scan Activity</h4>
+                    <h4>Hourly Scan Activity (ART)</h4>
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={scanAnalytics.hourlyData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis 
                           dataKey="hour" 
-                          tickFormatter={(hour) => `${hour}:00`}
+                          tickFormatter={formatArgentinaHour}
                         />
                         <YAxis />
                         <Tooltip 
                           formatter={(value, name) => [value, name === 'scans' ? 'Total Scans' : name]}
-                          labelFormatter={(hour) => `Hour: ${hour}:00`}
+                          labelFormatter={(hour) => `Hora: ${formatArgentinaHour(hour)}`}
                         />
                         <Bar dataKey="successful" stackId="a" fill="#10b981" name="Successful" />
                         <Bar dataKey="failed" stackId="a" fill="#ef4444" name="Failed" />

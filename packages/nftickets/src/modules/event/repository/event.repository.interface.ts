@@ -91,6 +91,18 @@ export interface IEventRepository {
       scans: number;
       successRate: number;
     }>;
+    hourlyData: Array<{
+      hour: number;
+      scans: number;
+      successful: number;
+      failed: number;
+    }>;
+    dailyData: Array<{
+      date: string;
+      scans: number;
+      successful: number;
+      failed: number;
+    }>;
     peakHours: Array<{
       hour: number;
       scans: number;

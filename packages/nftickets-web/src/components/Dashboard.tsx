@@ -24,6 +24,24 @@ import {
 import type { Event } from '../types';
 import './Dashboard.css';
 
+// Function to format hour in Argentina timezone (UTC-3)
+const formatArgentinaHour = (hour: number) => {
+  // Convert to Argentina time (UTC-3)
+  const argentinaHour = (hour - 3 + 24) % 24;
+  return `${argentinaHour.toString().padStart(2, '0')}:00`;
+};
+
+// Function to format date in Argentina timezone
+const formatArgentinaDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+};
+
 interface DashboardProps {
   apiKey: string;
   walletAddress: string;
@@ -280,6 +298,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                     dataKey="date" 
                     stroke="#94A3B8"
                     tick={{ fill: '#94A3B8' }}
+                    tickFormatter={formatArgentinaDate}
                   />
                   <YAxis 
                     stroke="#94A3B8"
@@ -292,6 +311,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                       borderRadius: '8px',
                       color: '#fff'
                     }}
+                    labelFormatter={formatArgentinaDate}
                   />
                   <Legend />
                   <Line type="monotone" dataKey="successful" stroke="#10b981" activeDot={{ r: 8 }} />
@@ -347,7 +367,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
             <div className="chart-header">
               <h3>
                 <BarChart2 size={20} />
-                Peak Hours
+                Peak Hours (ART)
               </h3>
             </div>
             <div className="chart-content">
@@ -358,6 +378,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                     dataKey="hour" 
                     stroke="#94A3B8"
                     tick={{ fill: '#94A3B8' }}
+                    tickFormatter={formatArgentinaHour}
                   />
                   <YAxis 
                     stroke="#94A3B8"
@@ -370,6 +391,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                       borderRadius: '8px',
                       color: '#fff'
                     }}
+                    labelFormatter={(hour) => `Hora: ${formatArgentinaHour(hour)}`}
                   />
                   <Legend />
                   <Line type="monotone" dataKey="scans" stroke="#3b82f6" activeDot={{ r: 8 }} />
@@ -409,7 +431,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                   <div className="event-meta">
                     <span className="meta-item">
                       <Calendar size={14} />
-                      {new Date(event.created_at).toLocaleDateString()}
+                      {formatArgentinaDate(event.created_at)}
                     </span>
                   </div>
                 </div>

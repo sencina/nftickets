@@ -431,6 +431,18 @@ export class PrismaEventRepository implements IEventRepository {
       scans: number;
       successRate: number;
     }>;
+    hourlyData: Array<{
+      hour: number;
+      scans: number;
+      successful: number;
+      failed: number;
+    }>;
+    dailyData: Array<{
+      date: string;
+      scans: number;
+      successful: number;
+      failed: number;
+    }>;
     peakHours: Array<{
       hour: number;
       scans: number;
@@ -482,6 +494,46 @@ export class PrismaEventRepository implements IEventRepository {
       ORDER BY total_scans DESC
     `;
 
+    // Get hourly data
+    const hourlyData = await this.prisma.$queryRaw<
+      Array<{
+        hour: number;
+        total_scans: bigint;
+        successful_scans: bigint;
+      }>
+    >`
+      SELECT 
+        EXTRACT(HOUR FROM s.scanned_at) as hour,
+        COUNT(*) as total_scans,
+        COUNT(CASE WHEN s.scan_result = 'SUCCESS' THEN 1 END) as successful_scans
+      FROM "Scan" s
+      JOIN "Event" e ON s.event_id = e.id
+      WHERE e.creator_wallet_address = ${creatorWalletAddress}
+      ${timeFilter}
+      GROUP BY EXTRACT(HOUR FROM s.scanned_at)
+      ORDER BY hour
+    `;
+
+    // Get daily data
+    const dailyData = await this.prisma.$queryRaw<
+      Array<{
+        date: string;
+        total_scans: bigint;
+        successful_scans: bigint;
+      }>
+    >`
+      SELECT 
+        DATE(s.scanned_at) as date,
+        COUNT(*) as total_scans,
+        COUNT(CASE WHEN s.scan_result = 'SUCCESS' THEN 1 END) as successful_scans
+      FROM "Scan" s
+      JOIN "Event" e ON s.event_id = e.id
+      WHERE e.creator_wallet_address = ${creatorWalletAddress}
+      ${timeFilter}
+      GROUP BY DATE(s.scanned_at)
+      ORDER BY date
+    `;
+
     // Get peak hours
     const peakHoursData = await this.prisma.$queryRaw<
       Array<{
@@ -511,6 +563,18 @@ export class PrismaEventRepository implements IEventRepository {
         scans: Number(item.total_scans),
         successRate:
           Number(item.total_scans) > 0 ? (Number(item.successful_scans) / Number(item.total_scans)) * 100 : 0,
+      })),
+      hourlyData: hourlyData.map((item) => ({
+        hour: Number(item.hour),
+        scans: Number(item.total_scans),
+        successful: Number(item.successful_scans),
+        failed: Number(item.total_scans) - Number(item.successful_scans),
+      })),
+      dailyData: dailyData.map((item) => ({
+        date: item.date,
+        scans: Number(item.total_scans),
+        successful: Number(item.successful_scans),
+        failed: Number(item.total_scans) - Number(item.successful_scans),
       })),
       peakHours: peakHoursData.map((item) => ({
         hour: Number(item.hour),
