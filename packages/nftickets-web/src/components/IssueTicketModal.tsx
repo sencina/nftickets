@@ -38,7 +38,7 @@ interface TokenResponse {
 }
 
 export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClose, onSuccess, apiKey }) => {
-  const [selectedSector, setSelectedSector] = useState('');
+  const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +110,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!event) return;
+    if (!event || !selectedSector) return;
 
     setIsLoading(true);
     setError(null);
@@ -124,7 +124,8 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
         },
         body: JSON.stringify({
           eventId: event.id,
-          sectorName: selectedSector,
+          sectorId: selectedSector.id,
+          sectorName: selectedSector.name,
           walletAddress: recipientAddress
         }),
       });
@@ -177,14 +178,17 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
               <label htmlFor="sector">Sector</label>
               <select
                 id="sector"
-                value={selectedSector}
-                onChange={(e) => setSelectedSector(e.target.value)}
+                value={selectedSector?.id || ''}
+                onChange={(e) => {
+                  const sector = event.sectors?.find(s => s.id === e.target.value) || null;
+                  setSelectedSector(sector);
+                }}
                 required
                 disabled={isLoading}
               >
                 <option value="">Select a sector</option>
                 {event.sectors?.map((sector) => (
-                  <option key={sector.id} value={sector.name}>
+                  <option key={sector.id} value={sector.id}>
                     {sector.name} - {sector.capacity} seats
                   </option>
                 ))}

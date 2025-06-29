@@ -194,6 +194,7 @@ export class EventService {
   async issueTicket(
     walletAddress: string,
     eventId: string,
+    sectorId: string,
     sectorName: string,
     urlMetadata: { host: string; protocol: string },
     signature?: string,
@@ -204,16 +205,21 @@ export class EventService {
       throw new NotFoundException(eventId);
     }
 
-    const sector = event.sectors?.find((s) => s.name === sectorName);
+    // Verify that the sector exists and matches the provided name
+    const sector = await this.sectorRepository.findById(sectorId);
     if (!sector) {
-      throw new NotFoundException(sectorName);
+      throw new NotFoundException(sectorId);
+    }
+
+    if (sector.name !== sectorName) {
+      throw new ValidationException([{ message: 'Sector name does not match the provided ID' }]);
     }
 
     const eventAddress = event.address;
-    const contractSectorId = sector.contractSectorId;
+    const contractSectorId = sector.contract_sector_id;
 
     if (contractSectorId === undefined) {
-      throw new NotFoundException(sectorName);
+      throw new NotFoundException(`Contract sector ID not found for sector ${sectorId}`);
     }
 
     // Use the contract type stored with the event
@@ -234,12 +240,11 @@ export class EventService {
         contractAddress: eventAddress,
         eventId,
         eventName: event.name,
-        sectorName,
+        sectorName: sector.name,
         sectorId: contractSectorId,
         ticketOwner: walletAddress,
         timestamp: Date.now(),
         signature: '', // Will be filled after signing
-        // Removed verificationUrl for security
       };
 
       // Create message to sign (without the signature field)
@@ -252,13 +257,13 @@ export class EventService {
       qrCodeData.signature = signature;
 
       // Generate ticket image with QR code containing complete data
-      const ticketImage = await generateImage(eventName, sectorName, currentTokenId.toString(), qrCodeData);
+      const ticketImage = await generateImage(eventName, sector.name, currentTokenId.toString(), qrCodeData);
 
       const tokenMetadataHash = await uploadMetadata(
         {
-          name: `${eventName} - ${sectorName}`,
-          description: `Ticket for ${eventName}, sector ${sectorName}`,
-          sector: sectorName,
+          name: `${eventName} - ${sector.name}`,
+          description: `Ticket for ${eventName}, sector ${sector.name}`,
+          sector: sector.name,
           sectorId: contractSectorId,
           eventAddress: eventAddress,
           verificationUrl: VERIFICATION_URL(
@@ -331,10 +336,10 @@ export class EventService {
       await contract.setTokenTransferStrategy(currentTokenId, strategyData.strategyId, strategyData.initData);
 
       // Get the sector from database to access its ID
-      const dbSector = await this.sectorRepository.findByEventIdAndName(eventId, sectorName);
+      const dbSector = await this.sectorRepository.findByEventIdAndName(eventId, sector.name);
 
       if (!dbSector) {
-        throw new NotFoundException(sectorName);
+        throw new NotFoundException(sector.name);
       }
 
       // Create a ticket record in the database with the token ID and transfer strategy

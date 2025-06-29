@@ -85,24 +85,18 @@ export class PrismaEventRepository implements IEventRepository {
   }
 
   async findById(id: string): Promise<EventDTO | null> {
-    // Get event
     const event = await this.prisma.event.findUnique({
       where: { id },
+      include: {
+        sectors: true,
+      },
     });
 
-    if (!event) return null;
+    if (!event) {
+      return null;
+    }
 
-    // Get sectors with raw query
-    const sectors = await this.prisma.$queryRaw`
-      SELECT id, event_id, name, description, capacity, contract_sector_id, created_at
-      FROM "Sector"
-      WHERE event_id = ${id}::uuid
-    `;
-
-    const eventWithSectors = { ...event, sectors };
-
-    // Convert entity to DTO
-    return EventDTO.fromEntity(eventWithSectors, true);
+    return EventDTO.fromEntity(event, true);
   }
 
   async delete(id: string): Promise<EventDTO> {
@@ -147,6 +141,9 @@ export class PrismaEventRepository implements IEventRepository {
         orderBy: { created_at: 'desc' },
         skip: offset,
         take: limit,
+        include: {
+          sectors: true,
+        },
       }),
       this.prisma.event.count({
         where: { creator_wallet_address: creatorWalletAddress },
@@ -154,7 +151,7 @@ export class PrismaEventRepository implements IEventRepository {
     ]);
 
     return {
-      events: events.map((event) => EventDTO.fromEntity(event)),
+      events: events.map((event) => EventDTO.fromEntity(event, true)),
       total,
     };
   }

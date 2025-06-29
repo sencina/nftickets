@@ -61,7 +61,7 @@ eventRouter.post('/', apiKeyAuth, BodyValidation(CreateEventDTO), async (req, re
 eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), async (req, res) => {
   const walletAddress = req.walletAddress as string;
   const signature = req.signature as string;
-  const { eventId, sectorName, transferStrategy } = req.body;
+  const { eventId, sectorId, sectorName, transferStrategy } = req.body;
 
   const host = req.get('host');
   const protocol = req.protocol;
@@ -102,6 +102,7 @@ eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), as
   const { tokenId, address, ticketId, qrCodeData } = await service.issueTicket(
     walletAddress,
     eventId,
+    sectorId,
     sectorName,
     urlMetadata,
     signature,

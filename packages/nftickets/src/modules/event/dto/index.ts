@@ -34,6 +34,9 @@ export class IssueTicketDTO {
   eventId: string;
 
   @IsString()
+  sectorId: string;
+
+  @IsString()
   sectorName: string;
 
   @ValidateNested()
@@ -41,9 +44,16 @@ export class IssueTicketDTO {
   @Type(() => TransferStrategyDTO)
   transferStrategy?: TransferStrategyDTO;
 
-  constructor(walletAddress: string, eventId: string, sectorName: string, transferStrategy?: TransferStrategyDTO) {
+  constructor(
+    walletAddress: string,
+    eventId: string,
+    sectorId: string,
+    sectorName: string,
+    transferStrategy?: TransferStrategyDTO
+  ) {
     this.walletAddress = walletAddress;
     this.eventId = eventId;
+    this.sectorId = sectorId;
     this.sectorName = sectorName;
     this.transferStrategy = transferStrategy;
   }
