@@ -3,7 +3,7 @@ import { BrowserProvider } from 'ethers';
 import './WalletConnector.css';
 
 interface WalletConnectorProps {
-  onConnect: (address: string) => void;
+  onConnect: (address: string, provider: BrowserProvider) => void;
 }
 
 declare global {
@@ -74,7 +74,7 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) =
 
       setWalletAddress(address);
       setIsConnected(true);
-      onConnect(address);
+      onConnect(address, provider);
       setError(null);
     } catch (error) {
       console.error('Error connecting wallet:', error);
@@ -94,7 +94,7 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) =
             if (network.chainId === BigInt(parseInt(AMOY_CHAIN_ID, 16))) {
               setWalletAddress(accounts[0]);
               setIsConnected(true);
-              onConnect(accounts[0]);
+              onConnect(accounts[0], provider);
             }
           }
         }
@@ -107,11 +107,12 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) =
 
     // Add event listeners
     if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+      window.ethereum.on('accountsChanged', async (accounts: string[]) => {
         if (accounts.length > 0) {
+          const provider = new BrowserProvider(window.ethereum as any);
           setWalletAddress(accounts[0]);
           setIsConnected(true);
-          onConnect(accounts[0]);
+          onConnect(accounts[0], provider);
         } else {
           setWalletAddress(null);
           setIsConnected(false);

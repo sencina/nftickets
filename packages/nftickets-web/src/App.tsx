@@ -85,8 +85,9 @@ function App() {
   }, []);
 
   // Handle wallet connection - go directly to dashboard
-  const handleConnect = (address: string) => {
+  const handleConnect = (address: string, provider: BrowserProvider) => {
     setWalletAddress(address);
+    setProvider(provider);
   };
 
   // Handle signature generation
@@ -203,7 +204,7 @@ function App() {
           <div className={`auth-step ${currentStep === 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''} ${animatingStep && currentStep === 2 ? 'animating-out' : ''} ${animatingStep && currentStep === 3 ? 'animating-in' : ''}`}>
             <div className="auth-step-header">
               <div className="step-number">2</div>
-              <div className="step-title">Sign Message</div>
+              <div className="step-title">Generate Signature</div>
             </div>
             <div className="step-content">
               {currentStep === 2 && walletAddress && provider && (
@@ -215,7 +216,7 @@ function App() {
               )}
               {currentStep > 2 && (
                 <div className="completed-step">
-                  <p>Message signed successfully!</p>
+                  <p>Signature generated successfully!</p>
                 </div>
               )}
             </div>
