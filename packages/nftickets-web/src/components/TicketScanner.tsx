@@ -29,7 +29,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
   const [isPasting, setIsPasting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const API_BASE = 'http://localhost:8080/api';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
   useEffect(() => {
     const handlePaste = async (event: ClipboardEvent) => {

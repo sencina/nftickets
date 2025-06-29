@@ -51,7 +51,7 @@ const EventCreator: React.FC<EventCreatorProps> = ({
   const [message, setMessage] = useState<string | null>(null);
   const [authStep, setAuthStep] = useState<'signature' | 'apikey' | 'complete'>('signature');
 
-  const API_BASE = 'http://localhost:8080/api';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
   // Authentication handlers
   const handleSignature = (generatedSignature: string, signedMessage: string) => {
