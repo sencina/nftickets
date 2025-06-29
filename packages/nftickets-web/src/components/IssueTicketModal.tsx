@@ -1,44 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Ticket, AlertCircle, Copy, Check } from 'lucide-react';
 import './IssueTicketModal.css';
-
-interface Sector {
-  id?: string;
-  name: string;
-  capacity: number;
-  description?: string;
-  contractSectorId: number;
-}
-
-interface Event {
-  id: string;
-  name: string;
-  description: string;
-  address: string;
-  metadata_hash: string;
-  contract_type: string;
-  start_date?: string;
-  end_date?: string;
-  created_at: string;
-  creator_wallet_address: string;
-  sectors: Sector[];
-}
+import type { Event, Sector, TokenResponse } from '../types';
 
 interface IssueTicketModalProps {
   event: Event | null;
   onClose: () => void;
-  onSuccess?: () => void;
   apiKey: string;
 }
 
-interface TokenResponse {
-  tokenId: number;
-  address: string;
-  ticketId: string;
-  qrCodeData: string;
-}
-
-export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClose, onSuccess, apiKey }) => {
+export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClose, apiKey }) => {
   const [selectedSector, setSelectedSector] = useState<Sector | null>(null);
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,45 +19,6 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
   const [copyStatus, setCopyStatus] = useState<{ [key: string]: boolean }>({});
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
-
-  // Reset selected sector when event changes
-  useEffect(() => {
-    setSelectedSector(null);
-  }, [event]);
-
-  const handleSectorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    console.log('Select onChange triggered');
-    console.log('Event target:', e.target);
-    console.log('Selected value:', e.target.value);
-    console.log('Selected index:', e.target.selectedIndex);
-    console.log('Selected option text:', e.target.options[e.target.selectedIndex].text);
-    console.log('Available sectors:', event?.sectors);
-
-    const selectedValue = e.target.value;
-    if (!event || !selectedValue) {
-      console.log('Clearing selected sector');
-      setSelectedSector(null);
-      return;
-    }
-    
-    const sector = event.sectors.find(s => {
-      console.log('Sector being compared:', s);
-      console.log('Comparing values:', {
-        contractSectorId: s.contractSectorId,
-        selectedValue: selectedValue,
-        areEqual: s.contractSectorId.toString() === selectedValue,
-        sectorId: s.id
-      });
-      return s.contractSectorId.toString() === selectedValue;
-    });
-    console.log('Found sector:', sector);
-    setSelectedSector(sector || null);
-  };
-
-  // Log when selected sector changes
-  useEffect(() => {
-    console.log('Selected sector updated:', selectedSector);
-  }, [selectedSector]);
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -130,9 +62,6 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
       const data = await response.json();
       setTokenData(data);
       setSuccess(true);
-      if (onSuccess) {
-        onSuccess();
-      }
     } catch (err) {
       console.error('Error issuing ticket:', err);
       setError(err instanceof Error ? err.message : 'Failed to issue ticket');
@@ -141,11 +70,15 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
     }
   };
 
-  const handleContinue = () => {
-    if (onSuccess) {
-      onSuccess();
+  const handleSectorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedValue = e.target.value;
+    if (!event || !selectedValue) {
+      setSelectedSector(null);
+      return;
     }
-    onClose();
+    
+    const sector = event.sectors.find(s => s.contractSectorId.toString() === selectedValue);
+    setSelectedSector(sector || null);
   };
 
   if (!event) {
@@ -156,12 +89,9 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-container" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="header-content">
-            <Ticket className="header-icon" />
-            <h2>Issue Ticket - {event.name}</h2>
-          </div>
+          <h2>{success ? 'Ticket Issued Successfully' : 'Issue Ticket'}</h2>
           <button className="close-button" onClick={onClose}>
-            <X size={24} />
+            <X />
           </button>
         </div>
 
@@ -177,7 +107,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
                 disabled={isLoading}
               >
                 <option value="">Select a sector</option>
-                {event.sectors.map((sector) => (
+                {event?.sectors.map((sector) => (
                   <option key={sector.id} value={sector.contractSectorId.toString()}>
                     {sector.name} ({sector.capacity} seats)
                   </option>
@@ -186,101 +116,98 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
             </div>
 
             <div className="form-group">
-              <label htmlFor="recipient">Recipient Wallet Address</label>
+              <label htmlFor="walletAddress">Recipient Wallet Address</label>
               <input
-                id="recipient"
+                id="walletAddress"
                 type="text"
                 value={recipientAddress}
                 onChange={(e) => setRecipientAddress(e.target.value)}
                 placeholder="0x..."
                 required
-                pattern="^0x[a-fA-F0-9]{40}$"
-                title="Please enter a valid Ethereum address"
                 disabled={isLoading}
               />
             </div>
 
             {error && (
               <div className="error-message">
-                <AlertCircle size={16} />
+                <AlertCircle size={20} />
                 {error}
               </div>
             )}
 
-            <div className="modal-footer">
-              <button 
-                type="submit"
-                className="btn-submit" 
-                disabled={isLoading || !selectedSector}
-              >
-                {isLoading ? 'Issuing...' : 'Issue Ticket'}
-              </button>
-              <button 
-                type="button"
-                className="btn-cancel" 
-                onClick={onClose}
-                disabled={isLoading}
-              >
-                Cancel
-              </button>
-            </div>
+            <button type="submit" className="submit-button" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Ticket className="spin" />
+                  Issuing...
+                </>
+              ) : (
+                <>
+                  <Ticket />
+                  Issue Ticket
+                </>
+              )}
+            </button>
           </form>
         ) : (
-          <div className="success-content">
-            <div className="success-message">
-              <Check size={24} className="success-icon" />
-              <p>Ticket issued successfully!</p>
+          <div className="modal-content success">
+            <div className="success-header">
+              <Ticket size={48} />
+              <h3>Ticket Issued Successfully!</h3>
             </div>
 
-            <div className="token-info">
-              <div className="info-group">
-                <label>Contract Address:</label>
-                <div className="copy-field">
-                  <input type="text" value={tokenData?.address} readOnly />
-                  <button 
-                    onClick={() => copyToClipboard(tokenData?.address || '', 'address')}
-                    className="copy-button"
-                    title="Copy address"
-                  >
-                    {copyStatus['address'] ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
+            {tokenData && (
+              <>
+                <div className="token-info">
+                  <div className="info-group">
+                    <label>Token ID</label>
+                    <div className="copy-field">
+                      <span>{tokenData.tokenId}</span>
+                      <button
+                        onClick={() => copyToClipboard(tokenData.tokenId.toString(), 'tokenId')}
+                        className="copy-button"
+                      >
+                        {copyStatus.tokenId ? <Check size={16} /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="info-group">
+                    <label>Contract Address</label>
+                    <div className="copy-field">
+                      <span>{tokenData.address}</span>
+                      <button
+                        onClick={() => copyToClipboard(tokenData.address, 'address')}
+                        className="copy-button"
+                      >
+                        {copyStatus.address ? <Check size={16} /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="info-group">
+                    <label>Ticket ID</label>
+                    <div className="copy-field">
+                      <span>{tokenData.ticketId}</span>
+                      <button
+                        onClick={() => copyToClipboard(tokenData.ticketId, 'ticketId')}
+                        className="copy-button"
+                      >
+                        {copyStatus.ticketId ? <Check size={16} /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="info-group">
-                <label>Token ID:</label>
-                <div className="copy-field">
-                  <input type="text" value={tokenData?.tokenId} readOnly />
-                  <button 
-                    onClick={() => copyToClipboard(tokenData?.tokenId.toString() || '', 'tokenId')}
-                    className="copy-button"
-                    title="Copy token ID"
-                  >
-                    {copyStatus['tokenId'] ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              <p className="import-instructions">
-                You can use these details to manually import the NFT in MetaMask if needed.
-              </p>
-            </div>
-
-            <div className="modal-footer">
-              <button 
-                className="btn-submit" 
-                onClick={handleContinue}
-                style={{ marginRight: '10px' }}
-              >
-                Continue
-              </button>
-              <button 
-                className="btn-cancel" 
-                onClick={onClose}
-              >
-                Close
-              </button>
-            </div>
+                <button 
+                  onClick={onClose} 
+                  className="submit-button" 
+                  style={{ marginTop: '1rem', background: 'rgba(255, 255, 255, 0.1)' }}
+                >
+                  Close
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

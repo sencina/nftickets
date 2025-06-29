@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import jsQR from 'jsqr';
+import React, { useState, useRef } from 'react';
+import { BrowserQRCodeReader } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import './TicketScanner.css';
 
 interface TicketScannerProps {
@@ -28,75 +29,66 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
   const [isVerifying, setIsVerifying] = useState(false);
   const [isPasting, setIsPasting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
-  useEffect(() => {
-    const handlePaste = async (event: ClipboardEvent) => {
-      const items = event.clipboardData?.items;
-      if (!items) return;
-
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          event.preventDefault();
-          setIsPasting(true);
-          setError(null);
-          
-          try {
-            const file = item.getAsFile();
-            if (file) {
-              await processImage(file);
-            }
-          } catch (error) {
-            console.error('Error processing pasted image:', error);
-            setError('Failed to process pasted image. Please try again.');
-          } finally {
-            setIsPasting(false);
-          }
-          break;
-        }
-      }
-    };
-
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, []);
-
-  const extractQRCode = (imageElement: HTMLImageElement): string | null => {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) return null;
-
-    canvas.width = imageElement.width;
-    canvas.height = imageElement.height;
-    context.drawImage(imageElement, 0, 0);
-
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-    return code?.data || null;
-  };
-
   const processImage = async (file: File) => {
     try {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        img.onload = () => {
-          const qrData = extractQRCode(img);
-          if (qrData) {
-            setQrData(qrData);
+      setError(null);
+      
+      // Create an image element
+      const img = new Image();
+      const imageUrl = URL.createObjectURL(file);
+      
+      img.onload = async () => {
+        // Draw image to canvas
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Set canvas size to match image
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Draw image
+        ctx.drawImage(img, 0, 0);
+
+        try {
+          // Configure hints for better detection
+          const hints = new Map();
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+          hints.set(DecodeHintType.TRY_HARDER, true);
+
+          // Create reader
+          const reader = new BrowserQRCodeReader(hints);
+          
+          // Try to decode
+          const result = await reader.decodeFromCanvas(canvas);
+          
+          if (result) {
+            setQrData(result.getText());
+            setError(null);
           } else {
             setError('No QR code found in the image. Please try another image.');
           }
-        };
+        } catch (error) {
+          console.error('Error decoding QR code:', error);
+          setError('Failed to decode QR code. Please try a different image or adjust the image quality.');
+        }
       };
-      reader.readAsDataURL(file);
+
+      img.onerror = () => {
+        setError('Failed to load image. Please try another image.');
+        URL.revokeObjectURL(imageUrl);
+      };
+
+      img.src = imageUrl;
     } catch (error) {
       console.error('Error processing image:', error);
-      setError('Failed to process image. Please try again.');
+      setError('Failed to process image. Please try again with a different image.');
     }
   };
 
@@ -107,6 +99,37 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
     setError(null);
     await processImage(file);
   };
+
+  const handlePaste = async (event: ClipboardEvent) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        event.preventDefault();
+        setIsPasting(true);
+        setError(null);
+        
+        try {
+          const file = item.getAsFile();
+          if (file) {
+            await processImage(file);
+          }
+        } catch (error) {
+          console.error('Error processing pasted image:', error);
+          setError('Failed to process pasted image. Please try again.');
+        } finally {
+          setIsPasting(false);
+        }
+        break;
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   const verifyTicket = async () => {
     if (!qrData) return;
@@ -167,6 +190,8 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
       </div>
 
       <div className="scanner-content">
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+        
         {!qrData && (
           <div className="scanner-options">
             <div className="upload-section">

@@ -1,7 +1,9 @@
 .dashboard-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-  padding: 20px;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
   color: white;
   font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
@@ -64,22 +66,33 @@
   font-size: 0.9rem;
 }
 
-.refresh-btn {
+.refresh-btn,
+.scan-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid #3b82f6;
+  padding: 0.5rem 1rem;
   border-radius: 0.5rem;
-  color: #3b82f6;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
-.refresh-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.2);
+.refresh-btn:hover,
+.scan-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
+}
+
+.scan-btn {
+  background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+}
+
+.scan-btn:hover {
+  background: linear-gradient(45deg, #2563eb, #1e40af);
 }
 
 .refresh-btn:disabled {
@@ -830,11 +843,23 @@
 
 /* Scanner Section */
 .scanner-section {
-  margin-top: 2rem;
+  margin: 2rem 0;
   padding: 2rem;
   background: rgba(255, 255, 255, 0.02);
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .scanner-section .section-header {

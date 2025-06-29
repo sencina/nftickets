@@ -1,68 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { IssueTicketModal } from './IssueTicketModal';
 import EventDetailModal from './EventDetailModal';
 import TicketScanner from './TicketScanner';
 import {
-  AlertCircle, RefreshCw, Scan, Calendar,
-  Eye, Ticket, ExternalLink, Target, Maximize2,
-  Users, Activity, TrendingUp, BarChart2, PieChart as PieChartIcon
+  AlertCircle, RefreshCw, Calendar,
+  Eye, Ticket, ExternalLink, Target,
+  Users, Activity, TrendingUp, BarChart2, PieChart as PieChartIcon,
+  QrCode
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
+import type { Event } from '../types';
 import './Dashboard.css';
 
 interface DashboardProps {
-  walletAddress: string;
   apiKey: string;
+  walletAddress: string;
 }
 
-interface Event {
-  id: string;
-  name: string;
-  description: string;
-  address: string;
-  metadata_hash: string;
-  contract_type: string;
-  start_date?: string;
-  end_date?: string;
-  created_at: string;
-  creator_wallet_address: string;
-  sectors: Sector[];
-  stats?: {
-    totalTickets: number;
-    ticketsScanned: number;
-    successRate: number;
-  };
-}
-
-interface Sector {
-  id: string;
-  name: string;
-  capacity: number;
-  description?: string;
-}
-
-interface EventWithStats {
-  id: string;
-  name: string;
-  description: string;
-  address: string;
-  metadata_hash: string;
-  contract_type: string;
-  creator_wallet_address: string;
-  start_date?: string;
-  end_date?: string;
-  created_at: string;
-  stats?: {
-    totalTickets: number;
-    usedTickets: number;
-    successRate: number;
-  };
-  sectors: Sector[];
-}
+type EventWithStats = Event;
 
 interface DashboardAnalytics {
   totalScans: number;
@@ -109,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
   const [error, setError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventWithStats | null>(null);
   const [selectedEventForTicket, setSelectedEventForTicket] = useState<EventWithStats | null>(null);
-  const scannerRef = useRef<HTMLDivElement>(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -184,10 +151,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
     fetchData();
   };
 
-  const scrollToScanner = () => {
-    scannerRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   // Calculate total stats
   const totalStats = eventsWithStats.reduce((acc, event) => {
     return {
@@ -235,11 +198,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
         </div>
         <div className="header-actions">
           <button 
-            onClick={scrollToScanner} 
-            className="scan-tickets-btn"
+            onClick={() => setShowScanner(!showScanner)} 
+            className="scan-btn"
           >
-            <Scan size={20} />
-            Scan Tickets
+            <QrCode size={20} />
+            {showScanner ? 'Hide Scanner' : 'Scan Ticket'}
           </button>
           <button 
             onClick={handleRefresh} 
@@ -250,6 +213,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
           </button>
         </div>
       </div>
+
+      {/* Scanner Section */}
+      {showScanner && (
+        <div className="scanner-section">
+          <TicketScanner apiKey={apiKey} walletAddress={walletAddress} />
+        </div>
+      )}
 
       {/* Overview Cards */}
       <div className="overview-cards">
@@ -304,7 +274,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
             </div>
             <div className="chart-content">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dashboardAnalytics.dailyData}>
+                <LineChart data={dashboardAnalytics.dailyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                   <XAxis 
                     dataKey="date" 
@@ -324,9 +294,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="successful" name="Successful Scans" fill="#10b981" />
-                  <Bar dataKey="failed" name="Failed Scans" fill="#ef4444" />
-                </BarChart>
+                  <Line type="monotone" dataKey="successful" stroke="#10b981" activeDot={{ r: 8 }} />
+                  <Line type="monotone" dataKey="failed" stroke="#ef4444" activeDot={{ r: 8 }} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -382,7 +352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
             </div>
             <div className="chart-content">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dashboardAnalytics.hourlyData}>
+                <LineChart data={dashboardAnalytics.hourlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                   <XAxis 
                     dataKey="hour" 
@@ -402,25 +372,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="scans" name="Total Scans" fill="#3b82f6" />
-                </BarChart>
+                  <Line type="monotone" dataKey="scans" stroke="#3b82f6" activeDot={{ r: 8 }} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
         </div>
       )}
-
-      {/* Ticket Scanner Section */}
-      <section className="section" ref={scannerRef}>
-        <div className="section-header">
-          <h2 className="section-title">
-            <Maximize2 size={24} />
-            Ticket Scanner
-          </h2>
-          <span className="section-description">Scan and verify tickets for your events</span>
-        </div>
-        <TicketScanner apiKey={apiKey} walletAddress={walletAddress} />
-      </section>
 
       {/* Events Section */}
       <section className="section">
@@ -529,10 +487,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
         <IssueTicketModal
           event={selectedEventForTicket}
           onClose={() => setSelectedEventForTicket(null)}
-          onSuccess={() => {
-            setSelectedEventForTicket(null);
-            fetchData();
-          }}
           apiKey={apiKey}
         />
       )}

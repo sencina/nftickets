@@ -12,15 +12,15 @@ const generateQRCode = async (data: string | object): Promise<string> => {
     console.log('QR Data encrypted for ticket generation');
 
     const qrCode = await toDataURL(encryptedData, {
-      errorCorrectionLevel: 'M', // Medium error correction - better balance between scanning and data density
+      errorCorrectionLevel: 'H', // Highest error correction for better reliability
       type: 'image/png',
-      margin: 4, // Larger margin for better scanning
+      margin: 6, // Larger margin for better scanning
       color: {
         dark: '#000000', // Pure black for maximum contrast and readability
         light: '#FFFFFF', // Pure white background
       },
-      width: 512, // Even higher resolution for better quality
-      scale: 8, // Higher scale for sharper rendering
+      width: 1024, // Much higher resolution for better quality
+      scale: 10, // Higher scale for sharper rendering
     });
     return qrCode;
   } catch (error) {
