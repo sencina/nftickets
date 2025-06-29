@@ -1,7 +1,7 @@
 import canvas, { createCanvas, loadImage } from 'canvas';
 import { IMAGE_HEIGHT, IMAGE_WIDTH, LAYER_DIR } from './utils/constants';
 import path from 'path';
-import { toDataURL } from 'qrcode';
+import qrcode from 'qrcode-generator';
 import { encryptQRData } from '../../utils/encryption';
 
 const generateQRCode = async (data: string | object): Promise<string> => {
@@ -11,18 +11,16 @@ const generateQRCode = async (data: string | object): Promise<string> => {
 
     console.log('QR Data encrypted for ticket generation');
 
-    const qrCode = await toDataURL(encryptedData, {
-      errorCorrectionLevel: 'H', // Highest error correction for better reliability
-      type: 'image/png',
-      margin: 6, // Larger margin for better scanning
-      color: {
-        dark: '#000000', // Pure black for maximum contrast and readability
-        light: '#FFFFFF', // Pure white background
-      },
-      width: 1024, // Much higher resolution for better quality
-      scale: 10, // Higher scale for sharper rendering
-    });
-    return qrCode;
+    // Create QR Code instance
+    const qr = qrcode(0, 'H'); // Type 0 auto-detects size, H is highest error correction
+    qr.addData(encryptedData);
+    qr.make();
+
+    // Get QR code as data URL with a large cell size for better readability
+    const cellSize = 10; // Increase this for larger QR codes
+    const qrCodeDataUrl = qr.createDataURL(cellSize);
+
+    return qrCodeDataUrl;
   } catch (error) {
     console.error('Error generating QR code:', error);
     throw error;
