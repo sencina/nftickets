@@ -4,23 +4,71 @@ import path from 'path';
 import qrcode from 'qrcode-generator';
 import { encryptQRData } from '../../utils/encryption';
 
-const generateQRCode = async (data: string | object): Promise<string> => {
+// Minimal data structure for QR code - using shortest possible property names
+interface MinimalQRData {
+  t: string; // tokenId
+  c: string; // contractAddress
+  e: string; // eventId
+}
+
+const generateQRCode = async (data: MinimalQRData): Promise<string> => {
   try {
-    // Encrypt the QR data before encoding
-    const encryptedData = encryptQRData(data);
+    // Convert to most compact JSON string possible
+    const qrData = JSON.stringify(data);
 
-    console.log('QR Data encrypted for ticket generation');
+    // Encrypt the minimal data
+    const encryptedData = encryptQRData(qrData);
+    console.log('Minimal QR Data encrypted for ticket generation');
 
-    // Create QR Code instance
-    const qr = qrcode(0, 'H'); // Type 0 auto-detects size, H is highest error correction
+    // Create QR Code instance with highest error correction
+    const qr = qrcode(0, 'H');
     qr.addData(encryptedData);
     qr.make();
 
-    // Get QR code as data URL with a large cell size for better readability
-    const cellSize = 10; // Increase this for larger QR codes
-    const qrCodeDataUrl = qr.createDataURL(cellSize);
+    // Large cell size for better readability
+    const cellSize = 20; // Increased for better scanning
+    const margin = 8; // Good margin for contrast
+    const qrCodeDataURL = qr.createDataURL(cellSize, margin);
+    const qrImage = await loadImage(qrCodeDataURL);
 
-    return qrCodeDataUrl;
+    // Create a temporary canvas for the QR code with rounded corners and styling
+    const qrCanvas = createCanvas(qrImage.width + 40, qrImage.height + 40); // Add padding for shadow
+    const qrCtx = qrCanvas.getContext('2d');
+
+    // Add a subtle shadow
+    qrCtx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+    qrCtx.shadowBlur = 15;
+    qrCtx.shadowOffsetX = 0;
+    qrCtx.shadowOffsetY = 4;
+
+    // Draw white background with rounded corners
+    const radius = 20;
+    qrCtx.beginPath();
+    qrCtx.moveTo(20, radius);
+    qrCtx.lineTo(20, qrCanvas.height - 20 - radius);
+    qrCtx.arcTo(20, qrCanvas.height - 20, 20 + radius, qrCanvas.height - 20, radius);
+    qrCtx.lineTo(qrCanvas.width - 20 - radius, qrCanvas.height - 20);
+    qrCtx.arcTo(qrCanvas.width - 20, qrCanvas.height - 20, qrCanvas.width - 20, qrCanvas.height - 20 - radius, radius);
+    qrCtx.lineTo(qrCanvas.width - 20, radius);
+    qrCtx.arcTo(qrCanvas.width - 20, 20, qrCanvas.width - 20 - radius, 20, radius);
+    qrCtx.lineTo(20 + radius, 20);
+    qrCtx.arcTo(20, 20, 20, 20 + radius, radius);
+    qrCtx.closePath();
+
+    // Fill with pure white for maximum contrast
+    qrCtx.fillStyle = '#FFFFFF';
+    qrCtx.fill();
+
+    // Reset shadow for QR code
+    qrCtx.shadowColor = 'transparent';
+    qrCtx.shadowBlur = 0;
+    qrCtx.shadowOffsetX = 0;
+    qrCtx.shadowOffsetY = 0;
+
+    // Draw the QR code centered
+    qrCtx.drawImage(qrImage, 20, 20);
+
+    return qrCanvas.toDataURL();
   } catch (error) {
     console.error('Error generating QR code:', error);
     throw error;
@@ -33,117 +81,118 @@ const addLayer = async (traitType: string, val: string, ctx: canvas.CanvasRender
   return ctx.drawImage(img, 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
 };
 
-export const generateImage = async (
-  eventName: string,
-  type: string,
-  nftId: string,
-  qrCodeData: object // Complete QR code data object
-) => {
+export const generateImage = async (eventName: string, type: string, nftId: string, qrCodeData: MinimalQRData) => {
   const canvas = createCanvas(IMAGE_WIDTH, IMAGE_HEIGHT);
   const ctx = canvas.getContext('2d');
 
-  // Create rounded rectangle function
-  const roundRect = (x: number, y: number, width: number, height: number, radius: number) => {
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-  };
+  // Create a beautiful gradient background
+  const gradient = ctx.createLinearGradient(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+  gradient.addColorStop(0, '#1a237e'); // Deep blue
+  gradient.addColorStop(0.5, '#0d47a1'); // Rich blue
+  gradient.addColorStop(1, '#01579b'); // Dark blue
 
-  // Create outer gradient background (blue theme to match web interface)
-  const outerGradient = ctx.createLinearGradient(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
-  outerGradient.addColorStop(0, '#1a88ff'); // Primary blue
-  outerGradient.addColorStop(0.5, '#0066cc'); // Medium blue
-  outerGradient.addColorStop(1, '#004499'); // Dark blue
-
-  ctx.fillStyle = outerGradient;
+  // Fill background with gradient
+  ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
 
-  // Create inner white card with rounded corners
-  const cardPadding = 30;
-  const cardX = cardPadding;
-  const cardY = cardPadding;
-  const cardWidth = IMAGE_WIDTH - cardPadding * 2;
-  const cardHeight = IMAGE_HEIGHT - cardPadding * 2;
-  const cardRadius = 20;
+  // Add a subtle pattern overlay
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+  for (let i = 0; i < IMAGE_WIDTH; i += 20) {
+    for (let j = 0; j < IMAGE_HEIGHT; j += 20) {
+      ctx.fillRect(i, j, 10, 10);
+    }
+  }
 
-  // Add shadow for the inner card
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-  ctx.shadowBlur = 15;
+  // Generate QR code
+  const qrCodeDataURL = await generateQRCode(qrCodeData);
+  const qr = await loadImage(qrCodeDataURL);
+
+  // Calculate positions for centered QR code
+  const qrWidth = 380; // Slightly smaller for better proportions
+  const qrHeight = qrWidth;
+  const qrX = (IMAGE_WIDTH - qrWidth) / 2;
+  const qrY = 80; // Position from top
+
+  // Draw QR code
+  ctx.drawImage(qr, qrX, qrY, qrWidth, qrHeight);
+
+  // Add a subtle glow effect around the QR code
+  const glowGradient = ctx.createRadialGradient(
+    IMAGE_WIDTH / 2,
+    qrY + qrHeight / 2,
+    qrWidth / 2,
+    IMAGE_WIDTH / 2,
+    qrY + qrHeight / 2,
+    qrWidth
+  );
+  glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+  glowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = glowGradient;
+  ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
+
+  // Draw event name with shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+  ctx.shadowBlur = 10;
   ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 8;
+  ctx.shadowOffsetY = 4;
+  ctx.font = 'bold 48px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(eventName.toUpperCase(), IMAGE_WIDTH / 2, 50);
 
-  // Draw white inner card
-  roundRect(cardX, cardY, cardWidth, cardHeight, cardRadius);
-  ctx.fillStyle = '#ffffff';
+  // Reset shadow for other text
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Draw badge with sector type
+  const badgeWidth = 200;
+  const badgeHeight = 40;
+  const badgeX = (IMAGE_WIDTH - badgeWidth) / 2;
+  const badgeY = qrY + qrHeight + 20;
+
+  // Draw badge background with gradient
+  const badgeGradient = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeWidth, badgeY);
+  badgeGradient.addColorStop(0, '#3B82F6'); // Blue
+  badgeGradient.addColorStop(1, '#1D4ED8'); // Darker blue
+
+  // Draw rounded rectangle for badge
+  ctx.beginPath();
+  ctx.moveTo(badgeX + 10, badgeY);
+  ctx.lineTo(badgeX + badgeWidth - 10, badgeY);
+  ctx.quadraticCurveTo(badgeX + badgeWidth, badgeY, badgeX + badgeWidth, badgeY + 10);
+  ctx.lineTo(badgeX + badgeWidth, badgeY + badgeHeight - 10);
+  ctx.quadraticCurveTo(badgeX + badgeWidth, badgeY + badgeHeight, badgeX + badgeWidth - 10, badgeY + badgeHeight);
+  ctx.lineTo(badgeX + 10, badgeY + badgeHeight);
+  ctx.quadraticCurveTo(badgeX, badgeY + badgeHeight, badgeX, badgeY + badgeHeight - 10);
+  ctx.lineTo(badgeX, badgeY + 10);
+  ctx.quadraticCurveTo(badgeX, badgeY, badgeX + 10, badgeY);
+  ctx.closePath();
+
+  // Add shadow to badge
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 4;
+
+  // Fill badge
+  ctx.fillStyle = badgeGradient;
   ctx.fill();
 
   // Reset shadow
   ctx.shadowColor = 'transparent';
   ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
 
-  // Generate QR code with purple color
-  const qrCodeDataURL = await generateQRCode(qrCodeData);
-  const qr = await loadImage(qrCodeDataURL);
-
-  // Position QR code in the center-top of the white card - increased size for better readability
-  const qrSize = 320;
-  const qrX = (IMAGE_WIDTH - qrSize) / 2;
-  const qrY = cardY + 30;
-
-  // Create white background for QR code with padding for better contrast
-  const qrPadding = 15;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(qrX - qrPadding, qrY - qrPadding, qrSize + qrPadding * 2, qrSize + qrPadding * 2);
-
-  // Add subtle border around QR code
-  ctx.strokeStyle = '#e0e0e0';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(qrX - qrPadding, qrY - qrPadding, qrSize + qrPadding * 2, qrSize + qrPadding * 2);
-
-  // Draw QR code
-  ctx.drawImage(qr, qrX, qrY, qrSize, qrSize);
-
-  // Event name styling - adjusted for larger QR code
-  const eventY = qrY + qrSize + 45;
-  ctx.font = 'bold 48px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = '#000000';
+  // Draw sector type text
+  ctx.font = 'bold 24px Arial';
+  ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(eventName.toUpperCase(), IMAGE_WIDTH / 2, eventY);
+  ctx.fillText(type.toUpperCase(), IMAGE_WIDTH / 2, badgeY + 28);
 
-  // NFT badge with gradient background - more compact spacing
-  const badgeY = eventY + 50;
-  const badgeWidth = 180;
-  const badgeHeight = 50;
-  const badgeX = (IMAGE_WIDTH - badgeWidth) / 2;
-  const badgeRadius = 25;
+  // Draw NFT ID with subtle styling
+  ctx.font = '20px Arial';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.fillText(`#${nftId}`, IMAGE_WIDTH / 2, badgeY + badgeHeight + 30);
 
-  // Create badge gradient (blue theme)
-  const badgeGradient = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeWidth, badgeY);
-  badgeGradient.addColorStop(0, '#1a88ff'); // Primary blue
-  badgeGradient.addColorStop(1, '#0066cc'); // Darker blue
-
-  // Draw badge background
-  roundRect(badgeX, badgeY, badgeWidth, badgeHeight, badgeRadius);
-  ctx.fillStyle = badgeGradient;
-  ctx.fill();
-
-  // Badge text
-  ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${type.toUpperCase()} #${nftId}`, IMAGE_WIDTH / 2, badgeY + badgeHeight / 2);
-
-  const buffer = canvas.toBuffer('image/png');
-  return buffer;
+  return canvas.toDataURL();
 };

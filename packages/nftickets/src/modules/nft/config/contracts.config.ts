@@ -15,6 +15,9 @@ export interface ContractConfig {
   authenticationStrategy?: AuthenticationStrategy;
 }
 
+// Map to store deployed contract addresses and their types
+const CONTRACT_ADDRESSES: Map<string, string> = new Map();
+
 export const CONTRACTS: Record<string, ContractConfig> = {
   NFTicket1155: {
     artifact: NFTicket1155Artifact,
@@ -36,6 +39,34 @@ export function getContractConfig(contractType: string = DEFAULT_CONTRACT): Cont
   }
 
   return config;
+}
+
+/**
+ * Get contract configuration by contract address
+ * @param address Contract address to look up
+ * @returns Contract configuration
+ */
+export function getContractConfigByAddress(address: string): ContractConfig {
+  // First try to get the contract type from our address map
+  const contractType = CONTRACT_ADDRESSES.get(address.toLowerCase());
+
+  if (!contractType) {
+    // If not found, default to NFTicket721 for backward compatibility
+    console.warn(`Contract address ${address} not found in mapping, defaulting to NFTicket721`);
+    return CONTRACTS[DEFAULT_CONTRACT];
+  }
+
+  return getContractConfig(contractType);
+}
+
+/**
+ * Register a deployed contract address with its type
+ * @param address Contract address
+ * @param contractType Contract type (e.g., 'NFTicket721')
+ */
+export function registerContractAddress(address: string, contractType: string) {
+  CONTRACT_ADDRESSES.set(address.toLowerCase(), contractType);
+  console.log(`Registered contract address ${address} as type ${contractType}`);
 }
 
 // Initialize strategies after contract configs are defined

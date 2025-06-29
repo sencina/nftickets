@@ -16,6 +16,7 @@ export class TicketRepository implements ITicketRepository {
         contract_token_id: data.contract_token_id,
         transfer_strategy_type: data.transfer_strategy_type,
         transfer_strategy_data: data.transfer_strategy_data || undefined,
+        is_used: false,
       },
     });
   }
@@ -29,6 +30,12 @@ export class TicketRepository implements ITicketRepository {
   async findByTokenId(tokenId: string): Promise<Ticket | null> {
     return this.prisma.ticket.findFirst({
       where: { contract_token_id: tokenId },
+    });
+  }
+
+  async findByContractTokenId(contractTokenId: string): Promise<Ticket | null> {
+    return this.prisma.ticket.findFirst({
+      where: { contract_token_id: contractTokenId },
     });
   }
 
@@ -71,6 +78,24 @@ export class TicketRepository implements ITicketRepository {
         used_at: new Date(),
         used_by: usedBy,
       },
+    });
+  }
+
+  async update(id: string, data: Partial<Ticket>): Promise<Ticket> {
+    return this.prisma.ticket.update({
+      where: { id },
+      data: {
+        is_used: data.is_used,
+        used_at: data.used_at,
+        used_by: data.used_by,
+        transfer_strategy_type: data.transfer_strategy_type,
+      },
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.ticket.delete({
+      where: { id },
     });
   }
 }

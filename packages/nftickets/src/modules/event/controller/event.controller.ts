@@ -61,7 +61,7 @@ eventRouter.post('/', apiKeyAuth, BodyValidation(CreateEventDTO), async (req, re
 eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), async (req, res) => {
   const walletAddress = req.walletAddress as string;
   const signature = req.signature as string;
-  const { eventId, sectorId, sectorName, transferStrategy } = req.body;
+  const { eventId, sectorId, transferStrategy } = req.body;
 
   const host = req.get('host');
   const protocol = req.protocol;
@@ -103,7 +103,6 @@ eventRouter.post('/issue-ticket', apiKeyAuth, BodyValidation(IssueTicketDTO), as
     walletAddress,
     eventId,
     sectorId,
-    sectorName,
     urlMetadata,
     signature,
     transferStrategy
@@ -249,10 +248,16 @@ eventRouter.post('/authenticate-ticket', apiKeyAuth, async (req, res) => {
 
 eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
   try {
+    console.log('[verify-qr] Starting QR verification with data:', {
+      hasQrData: !!req.body.qrCodeData,
+      scannerWallet: req.body.scannerWalletAddress,
+    });
+
     const { qrCodeData: encryptedQRData, scannerWalletAddress } = req.body;
 
     // First, validate that we have encrypted QR data
     if (!encryptedQRData || typeof encryptedQRData !== 'string') {
+      console.error('[verify-qr] Invalid QR data format:', { type: typeof encryptedQRData });
       return res.status(httpStatus.BAD_REQUEST).json({
         success: false,
         message: 'Invalid QR code data format - expected encrypted string',
@@ -262,6 +267,7 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
 
     // Validate that the encrypted data can be decrypted
     if (!validateEncryptedQRData(encryptedQRData)) {
+      console.error('[verify-qr] Invalid encrypted QR data');
       return res.status(httpStatus.BAD_REQUEST).json({
         success: false,
         message: 'Invalid or corrupted encrypted QR code data',
@@ -273,16 +279,139 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
     let qrCodeData;
     try {
       qrCodeData = decryptQRData(encryptedQRData);
-      console.log('QR code data successfully decrypted for verification');
+      console.log('[verify-qr] Successfully decrypted QR data:', {
+        hasMinimalFormat: 't' in qrCodeData && 'c' in qrCodeData && 'e' in qrCodeData,
+        fields: Object.keys(qrCodeData),
+      });
+
+      // Handle minimal format
+      if ('t' in qrCodeData && 'c' in qrCodeData && 'e' in qrCodeData) {
+        const tokenId = qrCodeData.t;
+        const contractAddress = qrCodeData.c;
+        const eventId = qrCodeData.e;
+        console.log('[verify-qr] Processing minimal format:', { tokenId, contractAddress, eventId });
+
+        // Fetch event details from database
+        const event = await service.getEventById(eventId);
+        if (!event) {
+          console.error('[verify-qr] Event not found:', eventId);
+          return res.status(httpStatus.NOT_FOUND).json({
+            success: false,
+            message: 'Event not found',
+            error: 'EVENT_NOT_FOUND',
+          });
+        }
+        console.log('[verify-qr] Found event:', { eventId, name: event.name });
+
+        // Get ticket details from blockchain
+        console.log('[verify-qr] Fetching ticket details from blockchain');
+        const ticketDetails = await service.getTicketDetails(contractAddress, tokenId);
+        if (!ticketDetails) {
+          console.error('[verify-qr] Ticket not found on blockchain:', { contractAddress, tokenId });
+          return res.status(httpStatus.NOT_FOUND).json({
+            success: false,
+            message: 'Ticket not found',
+            error: 'TICKET_NOT_FOUND',
+          });
+        }
+        console.log('[verify-qr] Found ticket details:', ticketDetails);
+
+        // For minimal format, we skip signature verification since it's a trusted source
+        // Verify ticket ownership and validity using token-specific authentication
+        const authResult = await service.authenticateTicketToken(eventId, ticketDetails.owner, parseInt(tokenId));
+
+        if (!authResult.isAuthenticated) {
+          // Log failed scan with specific error
+          let errorCode = 'AUTHENTICATION_FAILED';
+          if (authResult.error === 'TICKET_ALREADY_USED') {
+            errorCode = 'TICKET_ALREADY_USED';
+          } else if (authResult.error === 'TICKET_NOT_OWNED') {
+            errorCode = 'TICKET_NOT_OWNED';
+          } else if (authResult.error === 'TICKET_NOT_EXISTS') {
+            errorCode = 'TICKET_NOT_EXISTS';
+          }
+
+          await service.logScan({
+            eventId: eventId,
+            tokenId: tokenId,
+            contractAddress: contractAddress,
+            scannerAddress: scannerWalletAddress,
+            ticketOwner: ticketDetails.owner,
+            sectorName: ticketDetails.sectorName,
+            scanResult: authResult.error === 'TICKET_ALREADY_USED' ? 'ALREADY_USED' : 'FAILED',
+            errorCode: errorCode,
+          });
+
+          // Handle specific contract errors
+          if (authResult.error === 'TICKET_ALREADY_USED') {
+            return res.status(httpStatus.CONFLICT).json({
+              success: false,
+              message: 'Ticket has already been used',
+              error: 'TICKET_ALREADY_USED',
+              eventName: authResult.eventName,
+            });
+          } else if (authResult.error === 'TICKET_NOT_OWNED') {
+            return res.status(httpStatus.UNAUTHORIZED).json({
+              success: false,
+              message: 'Ticket is not owned by the specified address',
+              error: 'TICKET_NOT_OWNED',
+              eventName: authResult.eventName,
+            });
+          } else if (authResult.error === 'TICKET_NOT_EXISTS') {
+            return res.status(httpStatus.NOT_FOUND).json({
+              success: false,
+              message: 'Ticket does not exist',
+              error: 'TICKET_NOT_EXISTS',
+              eventName: authResult.eventName,
+            });
+          } else {
+            return res.status(httpStatus.UNAUTHORIZED).json({
+              success: false,
+              message: 'Ticket authentication failed - ticket not found or not owned by specified address',
+              error: 'AUTHENTICATION_FAILED',
+              eventName: authResult.eventName,
+            });
+          }
+        }
+
+        // Update database record for audit trail (blockchain is the authoritative source)
+        console.log('Blockchain authentication successful - updating database record for audit');
+        await service.markTicketAsUsed(tokenId, ticketDetails.owner, eventId);
+
+        // Log successful scan
+        await service.logScan({
+          eventId: eventId,
+          tokenId: tokenId,
+          contractAddress: contractAddress,
+          scannerAddress: scannerWalletAddress,
+          ticketOwner: ticketDetails.owner,
+          sectorName: ticketDetails.sectorName,
+          scanResult: 'SUCCESS',
+        });
+
+        return res.status(httpStatus.OK).json({
+          success: true,
+          message: 'Ticket verified successfully',
+          ticketInfo: {
+            tokenId: tokenId,
+            eventName: event.name,
+            sectorName: ticketDetails.sectorName,
+            ticketOwner: ticketDetails.owner,
+            contractAddress: contractAddress,
+            verifiedAt: new Date().toISOString(),
+            scannedBy: scannerWalletAddress,
+          },
+        });
+      }
     } catch (error) {
-      console.error('Failed to decrypt QR code data:', error);
+      console.error('Failed to decrypt or process QR code data:', error);
 
       // Log failed scan attempt
       try {
         await service.logScan({
-          eventId: 'unknown',
-          tokenId: 'unknown',
-          contractAddress: 'unknown',
+          eventId: qrCodeData?.e || qrCodeData?.eventId || 'unknown',
+          tokenId: qrCodeData?.t || qrCodeData?.tokenId || 'unknown',
+          contractAddress: qrCodeData?.c || qrCodeData?.contractAddress || 'unknown',
           scannerAddress: scannerWalletAddress,
           scanResult: 'FAILED',
           errorCode: 'DECRYPTION_FAILED',
@@ -293,7 +422,7 @@ eventRouter.post('/verify-qr', apiKeyAuth, async (req, res) => {
 
       return res.status(httpStatus.BAD_REQUEST).json({
         success: false,
-        message: 'Failed to decrypt QR code data',
+        message: 'Failed to decrypt or process QR code data',
         error: 'DECRYPTION_FAILED',
       });
     }

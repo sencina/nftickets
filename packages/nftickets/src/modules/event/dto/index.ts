@@ -37,6 +37,7 @@ export class IssueTicketDTO {
   sectorId: string;
 
   @IsString()
+  @IsOptional()
   sectorName: string;
 
   @ValidateNested()
@@ -48,13 +49,13 @@ export class IssueTicketDTO {
     walletAddress: string,
     eventId: string,
     sectorId: string,
-    sectorName: string,
+    sectorName?: string,
     transferStrategy?: TransferStrategyDTO
   ) {
     this.walletAddress = walletAddress;
     this.eventId = eventId;
     this.sectorId = sectorId;
-    this.sectorName = sectorName;
+    this.sectorName = sectorName || '';
     this.transferStrategy = transferStrategy;
   }
 }

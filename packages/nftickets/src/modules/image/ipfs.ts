@@ -42,6 +42,20 @@ export const uploadJsonMetadata = async (metadata: Record<string, string | numbe
   return metadataHash;
 };
 
+export const uploadToIPFS = async (buffer: Buffer) => {
+  const tatumClient = await TatumSDK.init<Polygon>({
+    network: Network.POLYGON,
+    verbose: true,
+    apiKey: {
+      v4: TATUM_API_KEY,
+    },
+  });
+
+  const result = await uploadFile(buffer, tatumClient);
+  await tatumClient.destroy();
+  return result;
+};
+
 const uploadFile = async (buffer: Buffer, tatumClient: Polygon) => {
   const result = await tatumClient.ipfs.uploadFile({ file: buffer });
   const fileHash = result.data.ipfsHash;

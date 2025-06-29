@@ -21,4 +21,10 @@ export interface ITicketRepository {
   updateTokenId(id: string, contractTokenId: string): Promise<Ticket>;
 
   markAsUsed(id: string, usedBy: string): Promise<Ticket>;
+
+  findByContractTokenId(contractTokenId: string): Promise<Ticket | null>;
+
+  update(id: string, data: Partial<Ticket>): Promise<Ticket>;
+
+  delete(id: string): Promise<void>;
 }

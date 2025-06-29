@@ -10,6 +10,14 @@ export function parseQRCodeData(qrString: string): QRCodeData | null {
   try {
     const data = JSON.parse(qrString);
 
+    // Check if it's the new minimal format
+    if ('t' in data && 'c' in data && 'e' in data) {
+      // Convert minimal format to full format
+      data.tokenId = data.t;
+      data.contractAddress = data.c;
+      data.eventId = data.e;
+    }
+
     // Validate that all required fields are present
     const requiredFields = [
       'tokenId',

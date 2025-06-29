@@ -3,11 +3,17 @@ import { Wallet, verifyMessage, JsonRpcSigner } from 'ethers';
 import { WALLET_PRIVATE_KEY } from '@env';
 import { PROVIDER } from '@modules/nft/utils/provider';
 import { Deployer } from '@modules/nft/service/deployer/deployer.impl';
-import { uploadMetadata } from '@modules/image/ipfs';
-import { BUCKET_URL } from '@modules/image/utils/constants';
+import { uploadMetadata, uploadToIPFS } from '@modules/image/ipfs';
+import { BUCKET_URL, IPFS_GATEWAY_URL } from '@modules/image/utils/constants';
 import { generateImage } from '@modules/image/image.generator';
 import { Contract } from 'ethers';
-import { ContractConfig, DEFAULT_CONTRACT, getContractConfig } from '@modules/nft/config/contracts.config';
+import {
+  ContractConfig,
+  DEFAULT_CONTRACT,
+  getContractConfig,
+  getContractConfigByAddress,
+  registerContractAddress,
+} from '@modules/nft/config/contracts.config';
 import { IEventRepository } from '../repository/event.repository.interface';
 import { createEventRepository } from '../repository/event.repository.factory';
 import { NotFoundException, ValidationException } from '@utils/errors';
@@ -20,6 +26,13 @@ import { MintingStrategyFactory } from '@modules/nft/strategy/minting';
 import { AuthenticationStrategyFactory } from '@modules/nft/strategy/authentication';
 import { DeploymentStrategyFactory } from '@modules/nft/strategy/deployment';
 import { encryptQRData } from '@utils/encryption';
+
+// Define the MinimalQRData interface
+interface MinimalQRData {
+  t: string; // tokenId
+  c: string; // contractAddress
+  e: string; // eventId
+}
 
 interface TransferStrategyNormal {
   type: 'NORMAL';
@@ -42,6 +55,7 @@ export class EventService {
   private ticketRepository: ITicketRepository;
   private sectorRepository: ISectorRepository;
   private defaultContractType: string;
+  private wallet: Wallet;
 
   constructor(private readonly contractConfig: ContractConfig) {
     // Initialize repositories
@@ -49,6 +63,7 @@ export class EventService {
     this.ticketRepository = createTicketRepository();
     this.sectorRepository = createSectorRepository();
     this.defaultContractType = this.contractConfig.name;
+    this.wallet = new Wallet(WALLET_PRIVATE_KEY as string);
   }
 
   /**
@@ -195,7 +210,6 @@ export class EventService {
     walletAddress: string,
     eventId: string,
     sectorId: string,
-    sectorName: string,
     urlMetadata: { host: string; protocol: string },
     signature?: string,
     transferStrategy?: TransferStrategy
@@ -209,10 +223,6 @@ export class EventService {
     const sector = await this.sectorRepository.findById(sectorId);
     if (!sector) {
       throw new NotFoundException(sectorId);
-    }
-
-    if (sector.name !== sectorName) {
-      throw new ValidationException([{ message: 'Sector name does not match the provided ID' }]);
     }
 
     const eventAddress = event.address;
@@ -234,48 +244,33 @@ export class EventService {
 
       const eventName = event.name;
 
-      // Create complete QR code data with all necessary information
-      const qrCodeData = {
-        tokenId: currentTokenId.toString(),
-        contractAddress: eventAddress,
-        eventId,
-        eventName: event.name,
-        sectorName: sector.name,
-        sectorId: contractSectorId,
-        ticketOwner: walletAddress,
-        timestamp: Date.now(),
-        signature: '', // Will be filled after signing
+      // Create minimal QR data with the new interface format
+      const qrCodeData: MinimalQRData = {
+        t: currentTokenId.toString(), // tokenId
+        c: eventAddress, // contractAddress
+        e: eventId, // eventId
       };
 
-      // Create message to sign (without the signature field)
-      const message = `Verify ticket:\nToken ID: ${qrCodeData.tokenId}\nContract: ${qrCodeData.contractAddress}\nEvent: ${qrCodeData.eventId}\nEvent Name: ${qrCodeData.eventName}\nSector: ${qrCodeData.sectorName}\nSector ID: ${qrCodeData.sectorId}\nOwner: ${qrCodeData.ticketOwner}\nTimestamp: ${qrCodeData.timestamp}`;
-
-      const serverWallet = new Wallet(WALLET_PRIVATE_KEY as string);
-      const signature = await serverWallet.signMessage(message);
-
-      // Add signature to QR code data
-      qrCodeData.signature = signature;
-
-      // Generate ticket image with QR code containing complete data
+      // Generate ticket image with QR code containing minimal encrypted data
       const ticketImage = await generateImage(eventName, sector.name, currentTokenId.toString(), qrCodeData);
+
+      // Convert base64 data URL to Buffer
+      const base64Data = ticketImage.replace(/^data:image\/\w+;base64,/, '');
+      const imageBuffer = Buffer.from(base64Data, 'base64');
+
+      // Upload image to IPFS
+      const imageHash = await uploadToIPFS(imageBuffer);
 
       const tokenMetadataHash = await uploadMetadata(
         {
-          name: `${eventName} - ${sector.name}`,
-          description: `Ticket for ${eventName}, sector ${sector.name}`,
+          name: `${eventName} - ${sector.name} #${currentTokenId}`,
+          description: `NFTicket for ${eventName} - ${sector.name}`,
+          event: eventName,
           sector: sector.name,
-          sectorId: contractSectorId,
-          eventAddress: eventAddress,
-          verificationUrl: VERIFICATION_URL(
-            urlMetadata.protocol,
-            urlMetadata.host,
-            eventId,
-            walletAddress,
-            contractSectorId
-          ),
+          tokenId: currentTokenId.toString(),
           qrCodeData: JSON.stringify(qrCodeData),
         },
-        ticketImage
+        imageBuffer
       );
 
       // Create mint data for the strategy
@@ -751,5 +746,92 @@ export class EventService {
       return this.ticketRepository.findByTokenIdAndEvent(tokenId, eventId);
     }
     return this.ticketRepository.findByTokenId(tokenId);
+  }
+
+  /**
+   * Get ticket details from the blockchain
+   * @param contractAddress The NFT contract address
+   * @param tokenId The token ID
+   * @returns Ticket details including owner, sector name, and sector ID
+   */
+  async getTicketDetails(contractAddress: string, tokenId: string) {
+    try {
+      console.log(`[getTicketDetails] Starting to fetch ticket details:`, { contractAddress, tokenId });
+
+      // Get contract configuration by address
+      const contractConfig = getContractConfigByAddress(contractAddress);
+      console.log('[getTicketDetails] Found contract configuration:', {
+        contractType: contractConfig.name,
+        hasAbi: !!contractConfig.artifact.abi,
+      });
+
+      // Create contract instance
+      const contract = new Contract(contractAddress, contractConfig.artifact.abi, PROVIDER);
+      console.log('[getTicketDetails] Contract instance created');
+
+      // Get ticket owner from blockchain
+      console.log('[getTicketDetails] Fetching owner for token:', tokenId);
+      const owner = await contract.ownerOf(tokenId);
+      console.log('[getTicketDetails] Found owner:', owner);
+
+      // Get ticket details from database
+      console.log('[getTicketDetails] Fetching ticket details from database');
+      const ticket = await this.ticketRepository.findByContractTokenId(tokenId);
+      if (!ticket) {
+        console.error('[getTicketDetails] Ticket not found in database:', tokenId);
+        return null;
+      }
+      console.log('[getTicketDetails] Found ticket in database:', ticket);
+
+      // Get sector details from database
+      console.log('[getTicketDetails] Fetching sector details');
+      const sector = await this.sectorRepository.findById(ticket.sector_id);
+      if (!sector) {
+        console.error('[getTicketDetails] Sector not found:', ticket.sector_id);
+        return null;
+      }
+      console.log('[getTicketDetails] Found sector:', sector);
+
+      return {
+        owner,
+        sectorName: sector.name,
+        sectorId: sector.contract_sector_id,
+      };
+    } catch (error) {
+      console.error('[getTicketDetails] Error getting ticket details:', error);
+      if (error instanceof Error) {
+        console.error('[getTicketDetails] Error stack:', error.stack);
+      }
+      return null;
+    }
+  }
+
+  private async deployContract(serverWallet: Wallet | JsonRpcSigner, walletAddress: string, contractType: string) {
+    try {
+      const contractConfig = getContractConfig(contractType);
+      const serverWallet = this.createServerWalletSigner(walletAddress);
+
+      const deployer = new Deployer(serverWallet, contractConfig.artifact.abi, contractConfig.artifact.bytecode);
+
+      const deploymentStrategy = DeploymentStrategyFactory.getStrategy(contractType);
+      if (!deploymentStrategy) {
+        throw new Error(`No deployment strategy found for contract type: ${contractType}`);
+      }
+
+      const result = await deploymentStrategy.deploy(deployer, {
+        eventName: 'Test Event',
+        metadataHash: '',
+        sectors: [],
+      });
+
+      // Register the deployed contract address
+      registerContractAddress(result.address, contractType);
+      console.log(`Contract deployed and registered:`, { address: result.address, type: contractType });
+
+      return result.address;
+    } catch (error) {
+      console.error('Error deploying contract:', error);
+      throw error;
+    }
   }
 }

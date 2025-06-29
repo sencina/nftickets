@@ -1,6 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { BrowserQRCodeReader } from '@zxing/browser';
-import { BarcodeFormat, DecodeHintType } from '@zxing/library';
+import React, { useState, useRef, useEffect } from 'react';
+import QrScanner from 'qr-scanner';
 import './TicketScanner.css';
 
 interface TicketScannerProps {
@@ -37,55 +36,20 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
     try {
       setError(null);
       
-      // Create an image element
-      const img = new Image();
-      const imageUrl = URL.createObjectURL(file);
+      // Use QrScanner to scan the image file directly
+      const result = await QrScanner.scanImage(file, {
+        returnDetailedScanResult: true,
+      });
       
-      img.onload = async () => {
-        // Draw image to canvas
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        // Set canvas size to match image
-        canvas.width = img.width;
-        canvas.height = img.height;
-        
-        // Draw image
-        ctx.drawImage(img, 0, 0);
-
-        try {
-          // Configure hints for better detection
-          const hints = new Map();
-          hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
-          hints.set(DecodeHintType.TRY_HARDER, true);
-
-          // Create reader
-          const reader = new BrowserQRCodeReader(hints);
-          
-          // Try to decode
-          const result = await reader.decodeFromCanvas(canvas);
-          
-          if (result) {
-            setQrData(result.getText());
-            setError(null);
-          } else {
-            setError('No QR code found in the image. Please try another image.');
-          }
-        } catch (error) {
-          console.error('Error decoding QR code:', error);
-          setError('Failed to decode QR code. Please try a different image or adjust the image quality.');
-        }
-      };
-
-      img.onerror = () => {
-        setError('Failed to load image. Please try another image.');
-        URL.revokeObjectURL(imageUrl);
-      };
-
-      img.src = imageUrl;
+      if (result) {
+        // Ensure we're getting the raw data without any modifications
+        const rawData = result.data.trim();
+        console.log('Raw QR data:', rawData); // For debugging
+        setQrData(rawData);
+        setError(null);
+      } else {
+        setError('No QR code found in the image. Please try another image.');
+      }
     } catch (error) {
       console.error('Error processing image:', error);
       setError('Failed to process image. Please try again with a different image.');
@@ -126,7 +90,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
