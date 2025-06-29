@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer
-} from 'recharts';
 import { IssueTicketModal } from './IssueTicketModal';
 import EventDetailModal from './EventDetailModal';
 import TicketScanner from './TicketScanner';
 import {
-  AlertCircle, RefreshCw, Scan, Calendar, Users,
-  Activity, Clock, PieChart as PieChartIcon, TrendingUp,
-  BarChart as BarChart3, Eye, Ticket, ExternalLink, Target, Maximize2
+  AlertCircle, RefreshCw, Scan, Calendar,
+  Eye, Ticket, ExternalLink, Target, Maximize2,
+  Users, Activity, TrendingUp, BarChart2, PieChart as PieChartIcon
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from 'recharts';
 import './Dashboard.css';
 
 interface DashboardProps {
@@ -45,85 +45,132 @@ interface Sector {
   description?: string;
 }
 
-interface EventWithStats extends Event {
-  stats: {
+interface EventWithStats {
+  id: string;
+  name: string;
+  description: string;
+  address: string;
+  metadata_hash: string;
+  contract_type: string;
+  creator_wallet_address: string;
+  start_date?: string;
+  end_date?: string;
+  created_at: string;
+  stats?: {
     totalTickets: number;
-    ticketsScanned: number;
+    usedTickets: number;
     successRate: number;
   };
+  sectors: Sector[];
 }
 
-interface CreatorStats {
-  totalEvents: number;
-  totalTicketsIssued: number;
-  totalTicketsScanned: number;
-  averageSuccessRate: number;
-}
-
-interface ScanAnalytics {
+interface DashboardAnalytics {
   totalScans: number;
+  successfulScans: number;
+  failedScans: number;
   successRate: number;
-  peakHours: {
+  hourlyData: Array<{
     hour: number;
     scans: number;
-  }[];
+    successful: number;
+    failed: number;
+  }>;
+  dailyData: Array<{
+    date: string;
+    scans: number;
+    successful: number;
+    failed: number;
+  }>;
+  peakHours: Array<{
+    hour: number;
+    scans: number;
+    successRate: number;
+  }>;
 }
 
+const getPerformanceBadgeClass = (successRate: number): string => {
+  if (successRate > 70) return 'excellent';
+  if (successRate > 40) return 'good';
+  if (successRate > 20) return 'average';
+  return 'poor';
+};
+
+const getPerformanceLabel = (successRate: number): string => {
+  if (successRate > 70) return 'EXCELLENT';
+  if (successRate > 40) return 'GOOD';
+  if (successRate > 20) return 'AVERAGE';
+  return 'LOW';
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) => {
-  const [scanAnalytics, setScanAnalytics] = useState<ScanAnalytics | null>(null);
-  const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [selectedEventForTicket, setSelectedEventForTicket] = useState<Event | null>(null);
+  const [eventsWithStats, setEventsWithStats] = useState<EventWithStats[]>([]);
+  const [dashboardAnalytics, setDashboardAnalytics] = useState<DashboardAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [eventsWithStats, setEventsWithStats] = useState<EventWithStats[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<EventWithStats | null>(null);
+  const [selectedEventForTicket, setSelectedEventForTicket] = useState<EventWithStats | null>(null);
   const scannerRef = useRef<HTMLDivElement>(null);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
   const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    if (!walletAddress) return;
+    
+    setLoading(true);
+    setError(null);
 
-      const [eventsRes, scanRes] = await Promise.all([
+    try {
+      const [eventsResponse, analyticsResponse] = await Promise.all([
         fetch(`${API_BASE}/event/creator/${walletAddress}/events`),
         fetch(`${API_BASE}/event/creator/${walletAddress}/scan-analytics`)
       ]);
 
-      if (!eventsRes.ok || !scanRes.ok) {
-        throw new Error('Failed to fetch data');
+      if (!eventsResponse.ok || !analyticsResponse.ok) {
+        throw new Error('Failed to fetch dashboard data');
       }
 
-      const [events, scan] = await Promise.all([
-        eventsRes.json(),
-        scanRes.json()
-      ]);
+      const eventsData = await eventsResponse.json();
+      const analyticsData = await analyticsResponse.json();
+      setDashboardAnalytics(analyticsData);
 
-      setEventsWithStats(events.events);
-      setScanAnalytics(scan);
+      // Fetch stats for each event
+      const eventsWithStatsPromises = eventsData.events.map(async (event: Event) => {
+        try {
+          const [statsRes, scanRes] = await Promise.all([
+            fetch(`${API_BASE}/event/${event.id}/stats`),
+            fetch(`${API_BASE}/event/${event.id}/scan-analytics`)
+          ]);
 
-      const totalStats = events.events.reduce((acc: CreatorStats, event: Event) => ({
-        totalEvents: acc.totalEvents + 1,
-        totalTicketsIssued: acc.totalTicketsIssued + (event.stats?.totalTickets || 0),
-        totalTicketsScanned: acc.totalTicketsScanned + (event.stats?.ticketsScanned || 0),
-        averageSuccessRate: 0
-      }), {
-        totalEvents: 0,
-        totalTicketsIssued: 0,
-        totalTicketsScanned: 0,
-        averageSuccessRate: 0
+          const stats = statsRes.ok ? await statsRes.json() : null;
+          const scanAnalytics = scanRes.ok ? await scanRes.json() : null;
+
+          return {
+            ...event,
+            stats: {
+              totalTickets: stats?.totalTickets || 0,
+              usedTickets: stats?.usedTickets || 0,
+              successRate: scanAnalytics?.successRate || 0
+            },
+            sectors: event.sectors || []
+          };
+        } catch (error) {
+          console.error(`Failed to fetch stats for event ${event.id}:`, error);
+          return {
+            ...event,
+            stats: {
+              totalTickets: 0,
+              usedTickets: 0,
+              successRate: 0
+            },
+            sectors: event.sectors || []
+          };
+        }
       });
 
-      totalStats.averageSuccessRate = totalStats.totalTicketsScanned > 0 
-        ? (totalStats.totalTicketsScanned / totalStats.totalTicketsIssued) * 100 
-        : 0;
-
-      setCreatorStats(totalStats);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch data');
+      const resolvedEventsWithStats = await Promise.all(eventsWithStatsPromises);
+      setEventsWithStats(resolvedEventsWithStats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while fetching data');
     } finally {
       setLoading(false);
     }
@@ -134,27 +181,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
   }, [walletAddress]);
 
   const handleRefresh = () => {
-    setRefreshing(true);
     fetchData();
-  };
-
-  const handleIssueTicket = async (event: Event) => {
-    try {
-      // Fetch complete event data with sectors
-      const response = await fetch(`${API_BASE}/event/${event.id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch event details');
-      }
-      const eventData = await response.json();
-      setSelectedEventForTicket(eventData);
-    } catch (error) {
-      console.error('Error fetching event details:', error);
-    }
   };
 
   const scrollToScanner = () => {
     scannerRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Calculate total stats
+  const totalStats = eventsWithStats.reduce((acc, event) => {
+    return {
+      totalTickets: acc.totalTickets + (event.stats?.totalTickets || 0),
+      usedTickets: acc.usedTickets + (event.stats?.usedTickets || 0),
+      totalEvents: acc.totalEvents + 1
+    };
+  }, { totalTickets: 0, usedTickets: 0, totalEvents: 0 });
+
+  const usageRate = totalStats.totalTickets > 0
+    ? (totalStats.usedTickets / totalStats.totalTickets * 100).toFixed(1)
+    : '0.0';
 
   if (loading) {
     return (
@@ -178,22 +223,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
     );
   }
 
-  // Prepare chart data
-  const usageData = creatorStats ? [
-    { name: 'Used Tickets', value: creatorStats.totalTicketsScanned, color: '#10b981' },
-    { name: 'Unused Tickets', value: creatorStats.totalTicketsIssued - creatorStats.totalTicketsScanned, color: '#e5e7eb' }
-  ] : [];
-
-  const scanSuccessData = scanAnalytics ? [
-    { name: 'Successful', value: scanAnalytics.totalScans - scanAnalytics.successRate, color: '#10b981' },
-    { name: 'Failed', value: scanAnalytics.successRate, color: '#ef4444' }
-  ] : [];
-
-  const eventPerformanceData = scanAnalytics ? scanAnalytics.peakHours.map(item => ({
-    name: `${item.hour}:00`,
-    scans: item.scans
-  })) : [];
-
   return (
     <div className="dashboard-container">
       {/* Header */}
@@ -214,11 +243,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
           </button>
           <button 
             onClick={handleRefresh} 
-            className={`refresh-btn ${refreshing ? 'refreshing' : ''}`}
-            disabled={refreshing}
+            className="refresh-btn"
           >
-            <RefreshCw className={refreshing ? 'spin' : ''} size={20} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            <RefreshCw size={20} />
+            Refresh
           </button>
         </div>
       </div>
@@ -227,146 +255,163 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
       <div className="overview-cards">
         <div className="stat-card">
           <div className="stat-icon">
-            <Calendar />
+            <Ticket size={24} />
           </div>
           <div className="stat-content">
-            <h3>{creatorStats?.totalEvents || 0}</h3>
+            <h3>{totalStats.totalTickets}</h3>
+            <p>Total Tickets</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">
+            <Users size={24} />
+          </div>
+          <div className="stat-content">
+            <h3>{totalStats.usedTickets}</h3>
+            <p>Tickets Used</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">
+            <Calendar size={24} />
+          </div>
+          <div className="stat-content">
+            <h3>{totalStats.totalEvents}</h3>
             <p>Total Events</p>
           </div>
         </div>
-
         <div className="stat-card">
           <div className="stat-icon">
-            <Users />
+            <Activity size={24} />
           </div>
           <div className="stat-content">
-            <h3>{creatorStats?.totalTicketsIssued || 0}</h3>
-            <p>Tickets Issued</p>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Activity />
-          </div>
-          <div className="stat-content">
-            <h3>{creatorStats?.averageSuccessRate.toFixed(1) || 0}%</h3>
+            <h3>{usageRate}%</h3>
             <p>Usage Rate</p>
           </div>
         </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Scan />
-          </div>
-          <div className="stat-content">
-            <h3>{scanAnalytics?.totalScans || 0}</h3>
-            <p>Total Scans</p>
-          </div>
-        </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="charts-grid">
-        {/* Peak Scan Times */}
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3><Clock size={20} /> Peak Scan Times</h3>
+      {/* Analytics Charts */}
+      {dashboardAnalytics && (
+        <div className="charts-grid">
+          {/* Daily Activity Chart */}
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3>
+                <TrendingUp size={20} />
+                Daily Activity
+              </h3>
+            </div>
+            <div className="chart-content">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dashboardAnalytics.dailyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#94A3B8"
+                    tick={{ fill: '#94A3B8' }}
+                  />
+                  <YAxis 
+                    stroke="#94A3B8"
+                    tick={{ fill: '#94A3B8' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      background: 'rgba(30, 41, 59, 0.9)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="successful" name="Successful Scans" fill="#10b981" />
+                  <Bar dataKey="failed" name="Failed Scans" fill="#ef4444" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="chart-content">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={scanAnalytics?.peakHours.map(item => ({
-                hour: `${item.hour}:00`,
-                scans: item.scans
-              })) || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value) => [value, 'Scans']}
-                  labelFormatter={(hour) => `Hour: ${hour}`}
-                />
-                <Bar dataKey="scans" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Usage Rate Pie Chart */}
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3><PieChartIcon size={20} /> Ticket Usage</h3>
+          {/* Scan Distribution Pie Chart */}
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3>
+                <PieChartIcon size={20} />
+                Scan Distribution
+              </h3>
+            </div>
+            <div className="chart-content">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Successful', value: dashboardAnalytics.successfulScans },
+                      { name: 'Failed', value: dashboardAnalytics.failedScans }
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label
+                  >
+                    <Cell fill="#10b981" />
+                    <Cell fill="#ef4444" />
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{
+                      background: 'rgba(30, 41, 59, 0.9)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="chart-content">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={usageData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  dataKey="value"
-                >
-                  {usageData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Scan Success Rate */}
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3><TrendingUp size={20} /> Scan Success Rate</h3>
-          </div>
-          <div className="chart-content">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={scanSuccessData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  dataKey="value"
-                >
-                  {scanSuccessData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Event Performance */}
-        <div className="chart-card">
-          <div className="chart-header">
-            <h3><BarChart3 size={20} /> Event Scan Activity</h3>
-          </div>
-          <div className="chart-content">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={eventPerformanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="scans" fill="#8b5cf6" />
-              </BarChart>
-            </ResponsiveContainer>
+          {/* Peak Hours Chart */}
+          <div className="chart-card">
+            <div className="chart-header">
+              <h3>
+                <BarChart2 size={20} />
+                Peak Hours
+              </h3>
+            </div>
+            <div className="chart-content">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dashboardAnalytics.hourlyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis 
+                    dataKey="hour" 
+                    stroke="#94A3B8"
+                    tick={{ fill: '#94A3B8' }}
+                  />
+                  <YAxis 
+                    stroke="#94A3B8"
+                    tick={{ fill: '#94A3B8' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      background: 'rgba(30, 41, 59, 0.9)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="scans" name="Total Scans" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Ticket Scanner Section */}
-      <section className="section">
+      <section className="section" ref={scannerRef}>
         <div className="section-header">
           <h2 className="section-title">
             <Maximize2 size={24} />
@@ -377,7 +422,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
         <TicketScanner apiKey={apiKey} walletAddress={walletAddress} />
       </section>
 
-      {/* Enhanced Events Table */}
+      {/* Events Section */}
       <section className="section">
         <div className="section-header">
           <h2 className="section-title">
@@ -386,20 +431,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
           </h2>
           <span className="section-description">Detailed analytics for all your events</span>
         </div>
-        
+
         <div className="events-table-enhanced">
           <div className="table-header">
-            <div className="col-name">Event</div>
-            <div className="col-tickets">Tickets</div>
-            <div className="col-usage">Usage</div>
-            <div className="col-scans">Scans</div>
-            <div className="col-performance">Performance</div>
-            <div className="col-actions">Actions</div>
+            <div>EVENT</div>
+            <div>TICKETS</div>
+            <div>USAGE</div>
+            <div>SCANS</div>
+            <div>PERFORMANCE</div>
+            <div>ACTIONS</div>
           </div>
-          
-          {eventsWithStats.map((event) => (
-            <div key={event.id} className="table-row-enhanced">
-              <div className="col-name">
+
+          {eventsWithStats.length > 0 ? (
+            eventsWithStats.map((event) => (
+              <div key={event.id} className="table-row-enhanced">
                 <div className="event-info">
                   <h4>{event.name}</h4>
                   <p className="event-description">{event.description}</p>
@@ -408,117 +453,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                       <Calendar size={14} />
                       {new Date(event.created_at).toLocaleDateString()}
                     </span>
-                    {event.start_date && (
-                      <span className="meta-item">
-                        <Clock size={14} />
-                        {new Date(event.start_date).toLocaleDateString()}
-                      </span>
-                    )}
                   </div>
                 </div>
-              </div>
-              
-              <div className="col-tickets">
-                <div className="stat-group">
+
+                <div className="stat-group" data-label="TICKETS">
                   <div className="stat-value">{event.stats?.totalTickets || 0}</div>
-                  <div className="stat-label">Total</div>
-                  <div className="stat-subvalue">{event.stats?.ticketsScanned || 0} scanned</div>
+                  <div className="stat-label">TOTAL</div>
+                  <div className="stat-subvalue">{event.stats?.usedTickets || 0} scanned</div>
                 </div>
-              </div>
-              
-              <div className="col-usage">
-                <div className="usage-indicator">
+
+                <div className="usage-indicator" data-label="USAGE">
                   <div className="usage-bar">
                     <div 
                       className="usage-fill" 
-                      style={{ width: `${event.stats?.successRate || 0}%` }}
-                    ></div>
+                      style={{ 
+                        width: `${event.stats?.totalTickets ? (event.stats.usedTickets / event.stats.totalTickets * 100) : 0}%` 
+                      }}
+                    />
                   </div>
                   <span className="usage-percentage">
-                    {(event.stats?.successRate || 0).toFixed(1)}%
+                    {event.stats?.totalTickets ? ((event.stats.usedTickets / event.stats.totalTickets * 100) || 0).toFixed(1) : '0.0'}%
                   </span>
                 </div>
-              </div>
-              
-              <div className="col-scans">
-                <div className="stat-group">
-                  <div className="stat-value">{event.stats?.ticketsScanned || 0}</div>
-                  <div className="stat-label">Total</div>
-                  <div className="stat-subvalue">
-                    {(event.stats?.successRate || 0).toFixed(1)}% success
-                  </div>
+
+                <div className="stat-group" data-label="SCANS">
+                  <div className="stat-value">{event.stats?.usedTickets || 0}</div>
+                  <div className="stat-label">TOTAL</div>
+                  <div className="stat-subvalue">{event.stats?.successRate?.toFixed(1) || '0.0'}% success</div>
                 </div>
-              </div>
-              
-              <div className="col-performance">
-                <div className="performance-indicators">
-                  <div 
-                    className={`performance-badge ${
-                      (event.stats?.successRate || 0) > 70 ? 'excellent' : 
-                      (event.stats?.successRate || 0) > 40 ? 'good' : 
-                      (event.stats?.successRate || 0) > 20 ? 'average' : 'poor'
-                    }`}
-                  >
-                    {(event.stats?.successRate || 0) > 70 ? 'Excellent' : 
-                     (event.stats?.successRate || 0) > 40 ? 'Good' : 
-                     (event.stats?.successRate || 0) > 20 ? 'Average' : 'Low'}
+
+                <div className="performance-indicators" data-label="PERFORMANCE">
+                  <div className={`performance-badge ${getPerformanceBadgeClass(event.stats?.successRate || 0)}`}>
+                    {event.stats?.successRate === 0 ? 'LOW' : getPerformanceLabel(event.stats?.successRate || 0)}
                   </div>
-                  {(event.stats?.ticketsScanned || 0) === 0 && (
+                  {event.stats?.usedTickets === 0 && (
                     <div className="warning-indicator">
                       <AlertCircle size={14} />
-                      <span>No scans yet</span>
+                      No scans yet
                     </div>
                   )}
                 </div>
-              </div>
-              
-              <div className="col-actions">
-                <button 
-                  className="btn-view-details"
-                  onClick={() => setSelectedEvent(event)}
-                >
-                  <Eye size={16} />
-                  View Details
-                </button>
-                <button 
-                  className="btn-issue-ticket"
-                  onClick={() => handleIssueTicket(event)}
-                >
-                  <Ticket size={16} />
-                  Issue Ticket
-                </button>
-                {event.address && (
-                  <button 
-                    className="btn-contract"
-                    onClick={() => window.open(`https://etherscan.io/address/${event.address}`, '_blank')}
-                  >
-                    <ExternalLink size={16} />
-                    Contract
+
+                <div className="col-actions">
+                  <button className="btn-view-details" onClick={() => setSelectedEvent(event)}>
+                    <Eye size={16} /> View Details
                   </button>
-                )}
+                  <button className="btn-issue-ticket" onClick={() => setSelectedEventForTicket(event)}>
+                    <Ticket size={16} /> Issue Ticket
+                  </button>
+                  <button className="btn-contract" onClick={() => window.open(`https://amoy.polygonscan.com/address/${event.address}`, '_blank')}>
+                    <ExternalLink size={16} /> Contract
+                  </button>
+                </div>
               </div>
+            ))
+          ) : (
+            <div className="empty-state">
+              <Target size={48} />
+              <h4>No Events Found</h4>
+              <p>You haven't created any events yet. Start by creating your first event!</p>
             </div>
-          ))}
+          )}
         </div>
-        
-        {eventsWithStats.length === 0 && (
-          <div className="empty-state">
-            <Target size={48} />
-            <h4>No events created yet</h4>
-            <p>Create your first event to start tracking analytics and managing tickets.</p>
-          </div>
-        )}
       </section>
 
-      {/* Event Detail Modal */}
+      {/* Modals */}
       {selectedEvent && (
-        <EventDetailModal 
-          event={selectedEvent} 
-          onClose={() => setSelectedEvent(null)} 
+        <EventDetailModal
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
         />
       )}
 
-      {/* Issue Ticket Modal */}
       {selectedEventForTicket && (
         <IssueTicketModal
           event={selectedEventForTicket}
