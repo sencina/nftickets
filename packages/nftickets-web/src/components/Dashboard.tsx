@@ -10,7 +10,7 @@ import TicketScanner from './TicketScanner';
 import {
   AlertCircle, RefreshCw, Scan, Calendar, Users,
   Activity, Clock, PieChart as PieChartIcon, TrendingUp,
-  BarChart as BarChart3, Eye, Ticket, ExternalLink, Target
+  BarChart as BarChart3, Eye, Ticket, ExternalLink, Target, Maximize2
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -366,19 +366,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
       </div>
 
       {/* Ticket Scanner Section */}
-      <div className="scanner-section" ref={scannerRef}>
+      <section className="section">
         <div className="section-header">
-          <h3><Scan size={24} /> Ticket Scanner</h3>
-          <p className="section-subtitle">Scan and verify tickets for your events</p>
+          <h2 className="section-title">
+            <Maximize2 size={24} />
+            Ticket Scanner
+          </h2>
+          <span className="section-description">Scan and verify tickets for your events</span>
         </div>
         <TicketScanner apiKey={apiKey} walletAddress={walletAddress} />
-      </div>
+      </section>
 
       {/* Enhanced Events Table */}
-      <div className="events-section">
+      <section className="section">
         <div className="section-header">
-          <h3>My Events</h3>
-          <p className="section-subtitle">Detailed analytics for all your events</p>
+          <h2 className="section-title">
+            <Calendar size={24} />
+            My Events
+          </h2>
+          <span className="section-description">Detailed analytics for all your events</span>
         </div>
         
         <div className="events-table-enhanced">
@@ -502,7 +508,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
             <p>Create your first event to start tracking analytics and managing tickets.</p>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Event Detail Modal */}
       {selectedEvent && (

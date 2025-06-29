@@ -140,15 +140,18 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
 
       // Add token to MetaMask
       await addTokenToMetaMask(tokenData);
-
-      if (onSuccess) {
-        onSuccess();
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleContinue = () => {
+    if (onSuccess) {
+      onSuccess();
+    }
+    onClose();
   };
 
   if (!event) {
@@ -211,20 +214,18 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
             )}
 
             <div className="modal-footer">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={onClose}
-                disabled={isLoading}
+              <button 
+                className="btn-submit" 
+                onClick={handleContinue}
+                style={{ marginRight: '10px' }}
               >
-                Cancel
+                Continue
               </button>
-              <button
-                type="submit"
-                className="btn-submit"
-                disabled={isLoading || !selectedSector || !recipientAddress}
+              <button 
+                className="btn-cancel" 
+                onClick={onClose}
               >
-                {isLoading ? 'Issuing Ticket...' : 'Issue Ticket'}
+                Close
               </button>
             </div>
           </form>
@@ -270,7 +271,17 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
             </div>
 
             <div className="modal-footer">
-              <button className="btn-submit" onClick={onClose}>
+              <button 
+                className="btn-submit" 
+                onClick={handleContinue}
+                style={{ marginRight: '10px' }}
+              >
+                Continue
+              </button>
+              <button 
+                className="btn-cancel" 
+                onClick={onClose}
+              >
                 Close
               </button>
             </div>
