@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, Ticket, AlertCircle } from 'lucide-react';
 import './IssueTicketModal.css';
-import { ethers } from 'ethers';
 
 interface Sector {
   id: string;
@@ -13,6 +12,14 @@ interface Sector {
 interface Event {
   id: string;
   name: string;
+  description: string;
+  address: string;
+  metadata_hash: string;
+  contract_type: string;
+  start_date?: string;
+  end_date?: string;
+  created_at: string;
+  creator_wallet_address: string;
   sectors: Sector[];
 }
 
@@ -30,7 +37,7 @@ interface TokenResponse {
   qrCodeData: string;
 }
 
-const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClose, onSuccess, apiKey }) => {
+export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClose, onSuccess, apiKey }) => {
   const [selectedSector, setSelectedSector] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,20 +52,19 @@ const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClose, onS
         throw new Error('MetaMask is not installed');
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
       const tokenAddress = tokenData.address;
       const tokenId = tokenData.tokenId.toString();
 
       // Request to add the NFT to MetaMask
       const wasAdded = await window.ethereum.request({
         method: 'wallet_watchAsset',
-        params: {
+        params: [{
           type: 'ERC721',
           options: {
             address: tokenAddress,
             tokenId: tokenId,
           },
-        },
+        }],
       });
 
       if (wasAdded) {
@@ -200,6 +206,4 @@ const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClose, onS
       </div>
     </div>
   );
-};
-
-export default IssueTicketModal; 
+}; 

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+import {
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer
 } from 'recharts';
-import { 
-  X, Calendar, MapPin, Users, TrendingUp, Clock, 
-  Activity, Zap, Target, DollarSign
+import {
+  X, Calendar, Users, TrendingUp,
+  Activity, Zap, Target
 } from 'lucide-react';
 import './EventDetailModal.css';
 

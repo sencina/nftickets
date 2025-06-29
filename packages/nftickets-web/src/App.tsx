@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BrowserProvider } from 'ethers';
-import WalletConnector from './modules/auth/components/WalletConnector';
+import { WalletConnector } from './modules/auth/components/WalletConnector';
 import SignatureGenerator from './modules/auth/components/SignatureGenerator';
 import ApiKeyGenerator from './modules/auth/components/ApiKeyGenerator';
-import Dashboard from './components/Dashboard';
+import { Dashboard } from './components/Dashboard';
 import EventCreator from './components/EventCreator';
 import WebGLBackground from './modules/background/WebGLBackground';
 import ParticleAnimation from './modules/animations/ParticleAnimation';
@@ -28,7 +28,7 @@ function App() {
   const [provider, setProvider] = useState<BrowserProvider | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(1);
   const [animatingStep, setAnimatingStep] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
@@ -85,13 +85,8 @@ function App() {
   }, []);
 
   // Handle wallet connection - go directly to dashboard
-  const handleConnect = (address: string, providerInstance: BrowserProvider) => {
-    // Clear logout flag when successfully connecting
-    localStorage.removeItem('nftickets_logged_out');
-    
+  const handleConnect = (address: string) => {
     setWalletAddress(address);
-    setProvider(providerInstance);
-    // Wallet connection now directly leads to dashboard access
   };
 
   // Handle signature generation
@@ -129,7 +124,7 @@ function App() {
     setProvider(null);
     setSignature(null);
     setMessage(null);
-    setApiKey(null);
+    setApiKey('');
     setCurrentStep(1);
     setCurrentPage('dashboard');
     setShowEventCreator(false);
@@ -293,13 +288,13 @@ function App() {
       {renderNavBar()}
       <main className="main-content">
         {currentPage === 'dashboard' && walletAddress && (
-          <Dashboard apiKey={apiKey || undefined} walletAddress={walletAddress} />
+          <Dashboard apiKey={apiKey} walletAddress={walletAddress} />
         )}
       </main>
       
       {showEventCreator && (
                   <EventCreator
-            apiKey={apiKey || undefined}
+            apiKey={apiKey}
             walletAddress={walletAddress!}
             provider={provider!}
           onEventCreated={() => {

@@ -1,107 +1,99 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+import {
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer
 } from 'recharts';
-import { 
-  Activity, Calendar, TrendingUp, Users, Scan, Clock, 
-  BarChart3, PieChart as PieChartIcon, RefreshCw, 
-  Eye, Target, AlertCircle, ExternalLink, Ticket
-} from 'lucide-react';
+import { IssueTicketModal } from './IssueTicketModal';
 import EventDetailModal from './EventDetailModal';
-import IssueTicketModal from './IssueTicketModal';
 import TicketScanner from './TicketScanner';
+import {
+  AlertCircle, RefreshCw, Scan, Calendar, Users,
+  Activity, Clock, PieChart as PieChartIcon, TrendingUp,
+  BarChart as BarChart3, Eye, Ticket, ExternalLink, Target
+} from 'lucide-react';
 import './Dashboard.css';
 
 interface DashboardProps {
-  apiKey?: string; // Optional since stats are public
   walletAddress: string;
-}
-
-interface CreatorStats {
-  totalEvents: number;
-  totalSectors: number;
-  totalTickets: number;
-  usedTickets: number;
-  usageRate: number;
+  apiKey: string;
 }
 
 interface Event {
   id: string;
   name: string;
   description: string;
-  created_at: string;
-  creator_wallet_address: string;
+  address: string;
+  metadata_hash: string;
+  contract_type: string;
   start_date?: string;
   end_date?: string;
-  address?: string;
-  metadata_hash?: string;
+  created_at: string;
+  creator_wallet_address: string;
+  sectors: Sector[];
+  stats?: {
+    totalTickets: number;
+    ticketsScanned: number;
+    successRate: number;
+  };
+}
+
+interface Sector {
+  id: string;
+  name: string;
+  capacity: number;
+  description?: string;
 }
 
 interface EventWithStats extends Event {
-  totalTickets?: number;
-  usedTickets?: number;
-  usageRate?: number;
-  totalScans?: number;
-  successRate?: number;
+  stats: {
+    totalTickets: number;
+    ticketsScanned: number;
+    successRate: number;
+  };
+}
+
+interface CreatorStats {
+  totalEvents: number;
+  totalTicketsIssued: number;
+  totalTicketsScanned: number;
+  averageSuccessRate: number;
 }
 
 interface ScanAnalytics {
   totalScans: number;
-  successfulScans: number;
-  failedScans: number;
   successRate: number;
-  eventBreakdown: Array<{
-    eventId: string;
-    eventName: string;
-    scans: number;
-    successRate: number;
-  }>;
-  peakHours: Array<{
+  peakHours: {
     hour: number;
     scans: number;
-  }>;
+  }[];
 }
 
-interface PeakTimesData {
-  peakHours: Array<{
-    hour: number;
-    scans: number;
-  }>;
-  totalScans: number;
-  successRate: number;
-  timeRange: {
-    startDate: string;
-    endDate: string;
-    days: number;
-  };
-}
-
-const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
-  const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null);
-  const [myEvents, setMyEvents] = useState<{ events: Event[]; total: number } | null>(null);
+export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) => {
   const [scanAnalytics, setScanAnalytics] = useState<ScanAnalytics | null>(null);
-  const [peakTimes, setPeakTimes] = useState<PeakTimesData | null>(null);
+  const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEventForTicket, setSelectedEventForTicket] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [selectedEventForTicket, setSelectedEventForTicket] = useState<Event | null>(null);
   const [eventsWithStats, setEventsWithStats] = useState<EventWithStats[]>([]);
   const scannerRef = useRef<HTMLDivElement>(null);
 
-  const API_BASE = 'http://localhost:8080/api'; // Adjust based on your backend URL
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
   const fetchData = async () => {
     try {
-      // Fetch all dashboard data in parallel
+      setLoading(true);
+      setError(null);
+
       const [eventsRes, scanRes] = await Promise.all([
-        fetch(`${API_BASE}/event/creator/${walletAddress}/events?page=1&limit=10`),
+        fetch(`${API_BASE}/event/creator/${walletAddress}/events`),
         fetch(`${API_BASE}/event/creator/${walletAddress}/scan-analytics`)
       ]);
 
       if (!eventsRes.ok || !scanRes.ok) {
-        throw new Error('Failed to fetch dashboard data');
+        throw new Error('Failed to fetch data');
       }
 
       const [events, scan] = await Promise.all([
@@ -109,49 +101,31 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
         scanRes.json()
       ]);
 
-      setMyEvents(events);
+      setEventsWithStats(events.events);
       setScanAnalytics(scan);
 
-      // Enhance events with stats from scan analytics
-      const enhancedEvents: EventWithStats[] = await Promise.all(events.events.map(async (event: Event) => {
-        const eventScanData = scan.eventBreakdown?.find((e: any) => e.eventId === event.id);
-        // Fetch real event stats
-        const statsRes = await fetch(`${API_BASE}/event/${event.id}/stats`);
-        const eventStats = await statsRes.json();
-        
-        return {
-          ...event,
-          totalScans: eventScanData?.scans || 0,
-          successRate: eventScanData?.successRate || 0,
-          totalTickets: eventStats.totalTickets || 0,
-          usedTickets: eventStats.usedTickets || 0,
-          usageRate: eventStats.usageRate || 0
-        };
-      }));
-      setEventsWithStats(enhancedEvents);
-
-      // Calculate creator stats from event stats
-      const totalStats = enhancedEvents.reduce((acc, event) => ({
+      const totalStats = events.events.reduce((acc: CreatorStats, event: Event) => ({
         totalEvents: acc.totalEvents + 1,
-        totalTickets: acc.totalTickets + (event.totalTickets || 0),
-        usedTickets: acc.usedTickets + (event.usedTickets || 0),
+        totalTicketsIssued: acc.totalTicketsIssued + (event.stats?.totalTickets || 0),
+        totalTicketsScanned: acc.totalTicketsScanned + (event.stats?.ticketsScanned || 0),
+        averageSuccessRate: 0
       }), {
         totalEvents: 0,
-        totalTickets: 0,
-        usedTickets: 0,
+        totalTicketsIssued: 0,
+        totalTicketsScanned: 0,
+        averageSuccessRate: 0
       });
 
-      setCreatorStats({
-        ...totalStats,
-        totalSectors: events.events.reduce((acc: number, event: any) => acc + (event.sectors?.length || 0), 0),
-        usageRate: totalStats.totalTickets > 0 ? (totalStats.usedTickets / totalStats.totalTickets) * 100 : 0,
-      });
+      totalStats.averageSuccessRate = totalStats.totalTicketsScanned > 0 
+        ? (totalStats.totalTicketsScanned / totalStats.totalTicketsIssued) * 100 
+        : 0;
 
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setCreatorStats(totalStats);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch data');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -206,24 +180,18 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
 
   // Prepare chart data
   const usageData = creatorStats ? [
-    { name: 'Used Tickets', value: creatorStats.usedTickets, color: '#10b981' },
-    { name: 'Unused Tickets', value: creatorStats.totalTickets - creatorStats.usedTickets, color: '#e5e7eb' }
+    { name: 'Used Tickets', value: creatorStats.totalTicketsScanned, color: '#10b981' },
+    { name: 'Unused Tickets', value: creatorStats.totalTicketsIssued - creatorStats.totalTicketsScanned, color: '#e5e7eb' }
   ] : [];
 
   const scanSuccessData = scanAnalytics ? [
-    { name: 'Successful', value: scanAnalytics.successfulScans, color: '#10b981' },
-    { name: 'Failed', value: scanAnalytics.failedScans, color: '#ef4444' }
+    { name: 'Successful', value: scanAnalytics.totalScans - scanAnalytics.successRate, color: '#10b981' },
+    { name: 'Failed', value: scanAnalytics.successRate, color: '#ef4444' }
   ] : [];
 
-  const peakHoursData = peakTimes ? peakTimes.peakHours.map(item => ({
-    hour: `${item.hour}:00`,
+  const eventPerformanceData = scanAnalytics ? scanAnalytics.peakHours.map(item => ({
+    name: `${item.hour}:00`,
     scans: item.scans
-  })) : [];
-
-  const eventPerformanceData = scanAnalytics ? scanAnalytics.eventBreakdown.map(event => ({
-    name: event.eventName.substring(0, 15) + (event.eventName.length > 15 ? '...' : ''),
-    scans: event.scans,
-    successRate: event.successRate
   })) : [];
 
   return (
@@ -272,7 +240,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
             <Users />
           </div>
           <div className="stat-content">
-            <h3>{creatorStats?.totalTickets || 0}</h3>
+            <h3>{creatorStats?.totalTicketsIssued || 0}</h3>
             <p>Tickets Issued</p>
           </div>
         </div>
@@ -282,7 +250,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
             <Activity />
           </div>
           <div className="stat-content">
-            <h3>{creatorStats?.usageRate.toFixed(1) || 0}%</h3>
+            <h3>{creatorStats?.averageSuccessRate.toFixed(1) || 0}%</h3>
             <p>Usage Rate</p>
           </div>
         </div>
@@ -403,7 +371,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
           <h3><Scan size={24} /> Ticket Scanner</h3>
           <p className="section-subtitle">Scan and verify tickets for your events</p>
         </div>
-        <TicketScanner apiKey={apiKey || ''} walletAddress={walletAddress} />
+        <TicketScanner apiKey={apiKey} walletAddress={walletAddress} />
       </div>
 
       {/* Enhanced Events Table */}
@@ -446,9 +414,9 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
               
               <div className="col-tickets">
                 <div className="stat-group">
-                  <div className="stat-value">{event.totalTickets || 0}</div>
+                  <div className="stat-value">{event.stats?.totalTickets || 0}</div>
                   <div className="stat-label">Total</div>
-                  <div className="stat-subvalue">{event.usedTickets || 0} used</div>
+                  <div className="stat-subvalue">{event.stats?.ticketsScanned || 0} scanned</div>
                 </div>
               </div>
               
@@ -457,21 +425,21 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
                   <div className="usage-bar">
                     <div 
                       className="usage-fill" 
-                      style={{ width: `${event.usageRate || 0}%` }}
+                      style={{ width: `${event.stats?.successRate || 0}%` }}
                     ></div>
                   </div>
                   <span className="usage-percentage">
-                    {(event.usageRate || 0).toFixed(1)}%
+                    {(event.stats?.successRate || 0).toFixed(1)}%
                   </span>
                 </div>
               </div>
               
               <div className="col-scans">
                 <div className="stat-group">
-                  <div className="stat-value">{event.totalScans || 0}</div>
+                  <div className="stat-value">{event.stats?.ticketsScanned || 0}</div>
                   <div className="stat-label">Total</div>
                   <div className="stat-subvalue">
-                    {(event.successRate || 0).toFixed(1)}% success
+                    {(event.stats?.successRate || 0).toFixed(1)}% success
                   </div>
                 </div>
               </div>
@@ -480,16 +448,16 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
                 <div className="performance-indicators">
                   <div 
                     className={`performance-badge ${
-                      (event.usageRate || 0) > 70 ? 'excellent' : 
-                      (event.usageRate || 0) > 40 ? 'good' : 
-                      (event.usageRate || 0) > 20 ? 'average' : 'poor'
+                      (event.stats?.successRate || 0) > 70 ? 'excellent' : 
+                      (event.stats?.successRate || 0) > 40 ? 'good' : 
+                      (event.stats?.successRate || 0) > 20 ? 'average' : 'poor'
                     }`}
                   >
-                    {(event.usageRate || 0) > 70 ? 'Excellent' : 
-                     (event.usageRate || 0) > 40 ? 'Good' : 
-                     (event.usageRate || 0) > 20 ? 'Average' : 'Low'}
+                    {(event.stats?.successRate || 0) > 70 ? 'Excellent' : 
+                     (event.stats?.successRate || 0) > 40 ? 'Good' : 
+                     (event.stats?.successRate || 0) > 20 ? 'Average' : 'Low'}
                   </div>
-                  {(event.totalScans || 0) === 0 && (
+                  {(event.stats?.ticketsScanned || 0) === 0 && (
                     <div className="warning-indicator">
                       <AlertCircle size={14} />
                       <span>No scans yet</span>
@@ -553,7 +521,7 @@ const Dashboard: React.FC<DashboardProps> = ({ apiKey, walletAddress }) => {
             setSelectedEventForTicket(null);
             fetchData();
           }}
-          apiKey={apiKey || ''}
+          apiKey={apiKey}
         />
       )}
     </div>
