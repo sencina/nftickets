@@ -20,17 +20,17 @@ declare global {
   }
 }
 
-const AMOY_CHAIN_ID = '0xc5b1'; // 50609 in decimal
+const AMOY_CHAIN_ID = '0x13882'; // 80002 in decimal
 const AMOY_CHAIN_CONFIG = {
   chainId: AMOY_CHAIN_ID,
-  chainName: 'Amoy',
+  chainName: 'Polygon Amoy',
   nativeCurrency: {
-    name: 'ETH',
-    symbol: 'ETH',
+    name: 'POL',
+    symbol: 'POL',
     decimals: 18
   },
-  rpcUrls: ['https://node.amoy.dev'],
-  blockExplorerUrls: ['https://amoy.linea.build']
+  rpcUrls: ['https://rpc-amoy.polygon.technology'],
+  blockExplorerUrls: ['https://amoy.polygonscan.com']
 };
 
 export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) => {
