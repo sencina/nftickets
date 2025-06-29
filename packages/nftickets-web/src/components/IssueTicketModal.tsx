@@ -71,7 +71,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
       // Request to add the NFT to MetaMask
       const wasAdded = await window.ethereum.request({
         method: 'wallet_watchAsset',
-        params: {
+        params: [{
           type: event?.contract_type === 'NFTicket1155' ? 'ERC1155' : 'ERC721',
           options: {
             address: tokenAddress,
@@ -82,7 +82,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
             image: metadata.image,
             tokenURI: `${API_BASE}/event/token-uri/${tokenAddress}/${tokenId}`
           },
-        },
+        }],
       });
 
       if (wasAdded) {
