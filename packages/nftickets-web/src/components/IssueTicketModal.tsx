@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Ticket, AlertCircle, Copy, Check } from 'lucide-react';
 import './IssueTicketModal.css';
 
 interface Sector {
-  id: string;
+  id?: string;
   name: string;
   capacity: number;
   description?: string;
+  contractSectorId: number;
 }
 
 interface Event {
@@ -48,6 +49,45 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
+  // Reset selected sector when event changes
+  useEffect(() => {
+    setSelectedSector(null);
+  }, [event]);
+
+  const handleSectorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    console.log('Select onChange triggered');
+    console.log('Event target:', e.target);
+    console.log('Selected value:', e.target.value);
+    console.log('Selected index:', e.target.selectedIndex);
+    console.log('Selected option text:', e.target.options[e.target.selectedIndex].text);
+    console.log('Available sectors:', event?.sectors);
+
+    const selectedValue = e.target.value;
+    if (!event || !selectedValue) {
+      console.log('Clearing selected sector');
+      setSelectedSector(null);
+      return;
+    }
+    
+    const sector = event.sectors.find(s => {
+      console.log('Sector being compared:', s);
+      console.log('Comparing values:', {
+        contractSectorId: s.contractSectorId,
+        selectedValue: selectedValue,
+        areEqual: s.contractSectorId.toString() === selectedValue,
+        sectorId: s.id
+      });
+      return s.contractSectorId.toString() === selectedValue;
+    });
+    console.log('Found sector:', sector);
+    setSelectedSector(sector || null);
+  };
+
+  // Log when selected sector changes
+  useEffect(() => {
+    console.log('Selected sector updated:', selectedSector);
+  }, [selectedSector]);
+
   const copyToClipboard = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -55,62 +95,14 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
       setTimeout(() => {
         setCopyStatus(prev => ({ ...prev, [field]: false }));
       }, 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
-  };
-
-  const addTokenToMetaMask = async (tokenData: TokenResponse) => {
-    try {
-      if (!window.ethereum) {
-        throw new Error('MetaMask is not installed');
-      }
-
-      const tokenAddress = tokenData.address;
-      const tokenId = tokenData.tokenId.toString();
-
-      // Fetch the token metadata first
-      const response = await fetch(`${API_BASE}/event/token-uri/${tokenAddress}/${tokenId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch token metadata');
-      }
-
-      const metadata = await response.json();
-
-      // Request to add the NFT to MetaMask
-      const wasAdded = await window.ethereum.request({
-        method: 'wallet_watchAsset',
-        params: [{
-          type: event?.contract_type === 'NFTicket1155' ? 'ERC1155' : 'ERC721',
-          options: {
-            address: tokenAddress,
-            tokenId: tokenId,
-            name: metadata.name || `${event?.name} Ticket`,
-            symbol: 'NFTIX',
-            decimals: 0,
-            image: metadata.image,
-            tokenURI: `${API_BASE}/event/token-uri/${tokenAddress}/${tokenId}`
-          },
-        }],
-      });
-
-      if (wasAdded) {
-        console.log('NFT was added to MetaMask');
-      }
-    } catch (error) {
-      console.error('Error adding token to MetaMask:', error);
-      setError('Failed to add token to MetaMask. You can add it manually later.');
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!event || !selectedSector) return;
+    if (!selectedSector || !recipientAddress || !event) return;
 
     setIsLoading(true);
     setError(null);
@@ -127,7 +119,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
           sectorId: selectedSector.id,
           sectorName: selectedSector.name,
           walletAddress: recipientAddress
-        }),
+        })
       });
 
       if (!response.ok) {
@@ -135,14 +127,15 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
         throw new Error(errorData.message || 'Failed to issue ticket');
       }
 
-      const tokenData: TokenResponse = await response.json();
-      setTokenData(tokenData);
+      const data = await response.json();
+      setTokenData(data);
       setSuccess(true);
-
-      // Add token to MetaMask
-      await addTokenToMetaMask(tokenData);
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      console.error('Error issuing ticket:', err);
+      setError(err instanceof Error ? err.message : 'Failed to issue ticket');
     } finally {
       setIsLoading(false);
     }
@@ -178,18 +171,15 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
               <label htmlFor="sector">Sector</label>
               <select
                 id="sector"
-                value={selectedSector?.id || ''}
-                onChange={(e) => {
-                  const sector = event.sectors?.find(s => s.id === e.target.value) || null;
-                  setSelectedSector(sector);
-                }}
+                value={selectedSector?.contractSectorId?.toString() || ''}
+                onChange={handleSectorChange}
                 required
                 disabled={isLoading}
               >
                 <option value="">Select a sector</option>
-                {event.sectors?.map((sector) => (
-                  <option key={sector.id} value={sector.id}>
-                    {sector.name} - {sector.capacity} seats
+                {event.sectors.map((sector) => (
+                  <option key={sector.id} value={sector.contractSectorId.toString()}>
+                    {sector.name} ({sector.capacity} seats)
                   </option>
                 ))}
               </select>
@@ -219,17 +209,19 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
 
             <div className="modal-footer">
               <button 
+                type="submit"
                 className="btn-submit" 
-                onClick={handleContinue}
-                style={{ marginRight: '10px' }}
+                disabled={isLoading || !selectedSector}
               >
-                Continue
+                {isLoading ? 'Issuing...' : 'Issue Ticket'}
               </button>
               <button 
+                type="button"
                 className="btn-cancel" 
                 onClick={onClose}
+                disabled={isLoading}
               >
-                Close
+                Cancel
               </button>
             </div>
           </form>
