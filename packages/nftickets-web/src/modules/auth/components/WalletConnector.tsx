@@ -20,6 +20,19 @@ declare global {
   }
 }
 
+const AMOY_CHAIN_ID = '0xc5b1'; // 50609 in decimal
+const AMOY_CHAIN_CONFIG = {
+  chainId: AMOY_CHAIN_ID,
+  chainName: 'Amoy',
+  nativeCurrency: {
+    name: 'ETH',
+    symbol: 'ETH',
+    decimals: 18
+  },
+  rpcUrls: ['https://node.amoy.dev'],
+  blockExplorerUrls: ['https://amoy.linea.build']
+};
+
 export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -38,30 +51,20 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) =
       const provider = new BrowserProvider(window.ethereum as any);
       const network = await provider.getNetwork();
 
-      // Check if we're on the correct network (Sepolia)
-      if (network.chainId !== 11155111n) {
-        // Request network switch to Sepolia
+      // Check if we're on the correct network (Amoy)
+      if (network.chainId !== BigInt(parseInt(AMOY_CHAIN_ID, 16))) {
+        // Request network switch to Amoy
         try {
           await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa36a7' }], // Sepolia chainId in hex
+            params: [{ chainId: AMOY_CHAIN_ID }],
           });
         } catch (switchError: any) {
           // This error code indicates that the chain has not been added to MetaMask
           if (switchError.code === 4902) {
             await window.ethereum.request({
               method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0xaa36a7',
-                chainName: 'Sepolia',
-                nativeCurrency: {
-                  name: 'Sepolia ETH',
-                  symbol: 'ETH',
-                  decimals: 18
-                },
-                rpcUrls: ['https://sepolia.infura.io/v3/'],
-                blockExplorerUrls: ['https://sepolia.etherscan.io']
-              }]
+              params: [AMOY_CHAIN_CONFIG]
             });
           } else {
             throw switchError;
@@ -88,7 +91,7 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ onConnect }) =
             const provider = new BrowserProvider(window.ethereum as any);
             const network = await provider.getNetwork();
             
-            if (network.chainId === 11155111n) {
+            if (network.chainId === BigInt(parseInt(AMOY_CHAIN_ID, 16))) {
               setWalletAddress(accounts[0]);
               setIsConnected(true);
               onConnect(accounts[0]);
