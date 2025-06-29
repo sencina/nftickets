@@ -55,16 +55,34 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
       const tokenAddress = tokenData.address;
       const tokenId = tokenData.tokenId.toString();
 
+      // Fetch the token metadata first
+      const response = await fetch(`${API_BASE}/event/token-uri/${tokenAddress}/${tokenId}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch token metadata');
+      }
+
+      const metadata = await response.json();
+
       // Request to add the NFT to MetaMask
       const wasAdded = await window.ethereum.request({
         method: 'wallet_watchAsset',
-        params: [{
-          type: 'ERC721',
+        params: {
+          type: event?.contract_type === 'NFTicket1155' ? 'ERC1155' : 'ERC721',
           options: {
             address: tokenAddress,
             tokenId: tokenId,
+            name: metadata.name || `${event?.name} Ticket`,
+            symbol: 'NFTIX',
+            decimals: 0,
+            image: metadata.image,
+            tokenURI: `${API_BASE}/event/token-uri/${tokenAddress}/${tokenId}`
           },
-        }],
+        },
       });
 
       if (wasAdded) {
