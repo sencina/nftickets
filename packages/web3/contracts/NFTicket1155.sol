@@ -3,11 +3,12 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./INFTicket.sol";
 import "./TransferStrategy.sol";
 
-contract NFTicket1155 is ERC1155Burnable, NFTicket {
+contract NFTicket1155 is ERC1155Burnable, ERC1155Supply, NFTicket {
     using Clones for address;
 
     address public owner;
@@ -90,12 +91,15 @@ contract NFTicket1155 is ERC1155Burnable, NFTicket {
         require(strategyAddress != address(0), "Strategy creation failed");
 
         // Initialize the strategy with the provided data
-        bytes memory initializeCall = abi.encodeWithSignature("initialize(bytes)", initData);
-        (bool success, ) = strategyAddress.call(initializeCall);
-        require(success, "Strategy initialization failed");
-        
-        tokenStrategyContracts[tokenId] = ITransferStrategy(strategyAddress);
-        emit TokenStrategySet(tokenId, strategyId, initData);
+        ITransferStrategy strategy = ITransferStrategy(strategyAddress);
+        try strategy.initialize(initData) {
+            tokenStrategyContracts[tokenId] = strategy;
+            emit TokenStrategySet(tokenId, strategyId, initData);
+        } catch Error(string memory reason) {
+            revert(string.concat("Strategy initialization failed: ", reason));
+        } catch {
+            revert("Strategy initialization failed");
+        }
     }
 
     /**
@@ -208,12 +212,19 @@ contract NFTicket1155 is ERC1155Burnable, NFTicket {
         uint256 amount,
         bytes memory data
     ) public {
+        require(
+            from == _msgSender() || isApprovedForAll(from, _msgSender()),
+            "ERC1155: caller is not token owner or approved"
+        );
+
         ITransferStrategy strategy = tokenStrategyContracts[id];
         require(address(strategy) != address(0), "Strategy contract not set");
-        require(strategy.canTransfer(from, to, id, amount), "Transfer not allowed by strategy");
-        
-        // If we get here, the transfer is allowed
-        safeTransferFrom(from, to, id, amount, data);
+        require(
+            strategy.canTransfer(from, to, id, amount),
+            "Transfer not allowed by strategy"
+        );
+
+        _safeTransferFrom(from, to, id, amount, data);
     }
 
     /**
@@ -226,14 +237,21 @@ contract NFTicket1155 is ERC1155Burnable, NFTicket {
         uint256[] memory amounts,
         bytes memory data
     ) public {
+        require(
+            from == _msgSender() || isApprovedForAll(from, _msgSender()),
+            "ERC1155: caller is not token owner or approved"
+        );
+
         for (uint256 i = 0; i < ids.length; i++) {
             ITransferStrategy strategy = tokenStrategyContracts[ids[i]];
             require(address(strategy) != address(0), "Strategy contract not set");
-            require(strategy.canTransfer(from, to, ids[i], amounts[i]), "Transfer not allowed by strategy");
+            require(
+                strategy.canTransfer(from, to, ids[i], amounts[i]),
+                "Transfer not allowed by strategy"
+            );
         }
-        
-        // If we get here, all transfers are allowed
-        safeBatchTransferFrom(from, to, ids, amounts, data);
+
+        _safeBatchTransferFrom(from, to, ids, amounts, data);
     }
 
     /**
@@ -343,13 +361,19 @@ contract NFTicket1155 is ERC1155Burnable, NFTicket {
         uint256 amount,
         bytes memory data
     ) public virtual override {
+        require(
+            from == _msgSender() || isApprovedForAll(from, _msgSender()),
+            "ERC1155: caller is not token owner or approved"
+        );
+
         ITransferStrategy strategy = tokenStrategyContracts[id];
         require(address(strategy) != address(0), "Strategy contract not set");
         require(
             strategy.canTransfer(from, to, id, amount),
             "Transfer not allowed by strategy"
         );
-        super.safeTransferFrom(from, to, id, amount, data);
+
+        _safeTransferFrom(from, to, id, amount, data);
     }
 
     /**
@@ -362,6 +386,11 @@ contract NFTicket1155 is ERC1155Burnable, NFTicket {
         uint256[] memory amounts,
         bytes memory data
     ) public virtual override {
+        require(
+            from == _msgSender() || isApprovedForAll(from, _msgSender()),
+            "ERC1155: caller is not token owner or approved"
+        );
+
         for (uint256 i = 0; i < ids.length; i++) {
             ITransferStrategy strategy = tokenStrategyContracts[ids[i]];
             require(address(strategy) != address(0), "Strategy contract not set");
@@ -370,6 +399,27 @@ contract NFTicket1155 is ERC1155Burnable, NFTicket {
                 "Transfer not allowed by strategy"
             );
         }
-        super.safeBatchTransferFrom(from, to, ids, amounts, data);
+
+        _safeBatchTransferFrom(from, to, ids, amounts, data);
+    }
+
+    function _update(
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory values
+    ) internal virtual override(ERC1155, ERC1155Supply) {
+        // Skip strategy check for minting (from == address(0))
+        if (from != address(0)) {
+            for (uint256 i = 0; i < ids.length; i++) {
+                ITransferStrategy strategy = tokenStrategyContracts[ids[i]];
+                require(address(strategy) != address(0), "Strategy contract not set");
+                require(
+                    strategy.canTransfer(from, to, ids[i], values[i]),
+                    "Transfer not allowed by strategy"
+                );
+            }
+        }
+        super._update(from, to, ids, values);
     }
 }

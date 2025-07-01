@@ -44,28 +44,41 @@ contract NonTransferableStrategy is ITransferStrategy {
 
 contract FallbackTransferStrategy is ITransferStrategy {
     address[] private fallbackAddresses;
-    address private immutable owner;
 
-    constructor(address[] memory _fallbackAddresses) {
-        owner = msg.sender;
-        fallbackAddresses = _fallbackAddresses;
+    constructor() {
+        // Empty constructor
     }
 
-    function initialize(bytes memory data) external {
-        require(msg.sender == owner, "Only owner");
+    function initialize(bytes memory data) external override {
+        require(data.length > 0, "Invalid initialization data");
         fallbackAddresses = abi.decode(data, (address[]));
+        require(fallbackAddresses.length > 0, "No fallback addresses provided");
+        
+        // Validate addresses
+        for(uint i = 0; i < fallbackAddresses.length; i++) {
+            require(fallbackAddresses[i] != address(0), "Invalid fallback address");
+        }
     }
 
     function canTransfer(
-        address,
+        address from,
         address to,
         uint256,
         uint256
     ) external view override returns (bool) {
-        uint256 len = fallbackAddresses.length;
-        for (uint256 i = 0; i < len; i++) {
-            if (fallbackAddresses[i] == to) return true;
+        require(fallbackAddresses.length > 0, "Strategy not initialized");
+        
+        // If transferring from a non-fallback address, only allow transfer to fallback addresses
+        bool fromIsFallback = false;
+        bool toIsFallback = false;
+        
+        for (uint256 i = 0; i < fallbackAddresses.length; i++) {
+            if (fallbackAddresses[i] == from) fromIsFallback = true;
+            if (fallbackAddresses[i] == to) toIsFallback = true;
         }
-        return false;
+        
+        // Only allow transfers TO fallback addresses if coming from a non-fallback address
+        // Disallow transfers FROM fallback addresses completely
+        return !fromIsFallback && toIsFallback;
     }
 } 

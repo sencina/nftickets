@@ -57,16 +57,17 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
             capacities[i] = _capacity[i];
         }
 
-        // Register default strategies in a gas-efficient way
+        // Register default strategies
         nextStrategyId = 1;
         address normalStrategy = address(new NormalTransferStrategy());
-        strategyImplementations[1] = normalStrategy;
-        emit StrategyRegistered(1, normalStrategy);
+        strategyImplementations[nextStrategyId] = normalStrategy;
+        emit StrategyRegistered(nextStrategyId, normalStrategy);
+        nextStrategyId++;
 
-        nextStrategyId = 2;
         address nonTransferableStrategy = address(new NonTransferableStrategy());
-        strategyImplementations[2] = nonTransferableStrategy;
-        emit StrategyRegistered(2, nonTransferableStrategy);
+        strategyImplementations[nextStrategyId] = nonTransferableStrategy;
+        emit StrategyRegistered(nextStrategyId, nonTransferableStrategy);
+        nextStrategyId++;
     }
 
     /**
@@ -111,12 +112,15 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
         require(strategyAddress != address(0), "Strategy creation failed");
 
         // Initialize the strategy with the provided data
-        bytes memory initializeCall = abi.encodeWithSignature("initialize(bytes)", initData);
-        (bool success, ) = strategyAddress.call(initializeCall);
-        require(success, "Strategy initialization failed");
-        
-        tokenStrategyContracts[tokenId] = ITransferStrategy(strategyAddress);
-        emit TokenStrategySet(tokenId, strategyId, initData);
+        ITransferStrategy strategy = ITransferStrategy(strategyAddress);
+        try strategy.initialize(initData) {
+            tokenStrategyContracts[tokenId] = strategy;
+            emit TokenStrategySet(tokenId, strategyId, initData);
+        } catch Error(string memory reason) {
+            revert(string.concat("Strategy initialization failed: ", reason));
+        } catch {
+            revert("Strategy initialization failed");
+        }
     }
 
     /**
@@ -227,6 +231,10 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
         address to,
         uint256 tokenId
     ) public {
+        require(
+            _ownerOf(tokenId) == from && (from == _msgSender() || isApprovedForAll(from, _msgSender()) || getApproved(tokenId) == _msgSender()),
+            "ERC721: caller is not token owner or approved"
+        );
         ITransferStrategy strategy = tokenStrategyContracts[tokenId];
         require(address(strategy) != address(0), "Strategy contract not set");
         require(
@@ -234,8 +242,7 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
             "Transfer not allowed by strategy"
         );
 
-        // If we get here, the transfer is allowed
-        _transfer(from, to, tokenId);
+        _update(to, tokenId, _msgSender());
     }
 
     /**
@@ -247,11 +254,12 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
         uint256[] memory tokenIds
     ) public {
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            ITransferStrategy strategy = tokenStrategyContracts[tokenIds[i]];
             require(
-                address(strategy) != address(0),
-                "Strategy contract not set"
+                _ownerOf(tokenIds[i]) == from && (from == _msgSender() || isApprovedForAll(from, _msgSender()) || getApproved(tokenIds[i]) == _msgSender()),
+                "ERC721: caller is not token owner or approved"
             );
+            ITransferStrategy strategy = tokenStrategyContracts[tokenIds[i]];
+            require(address(strategy) != address(0), "Strategy contract not set");
             require(
                 strategy.canTransfer(from, to, tokenIds[i], 1),
                 "Transfer not allowed by strategy"
@@ -260,8 +268,31 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
 
         // If we get here, all transfers are allowed
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            _transfer(from, to, tokenIds[i]);
+            _update(to, tokenIds[i], _msgSender());
         }
+    }
+
+    /**
+     * @dev Override the _update function to enforce transfer strategies
+     */
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal virtual override returns (address) {
+        address from = _ownerOf(tokenId);
+        
+        // Skip strategy check for minting (from == address(0))
+        if (from != address(0)) {
+            ITransferStrategy strategy = tokenStrategyContracts[tokenId];
+            require(address(strategy) != address(0), "Strategy contract not set");
+            require(
+                strategy.canTransfer(from, to, tokenId, 1),
+                "Transfer not allowed by strategy"
+            );
+        }
+
+        return super._update(to, tokenId, auth);
     }
 
     /**
@@ -386,30 +417,6 @@ contract NFTicket721 is ERC721URIStorage, NFTicket {
         address to,
         uint256 tokenId
     ) public virtual override(ERC721, IERC721) {
-        ITransferStrategy strategy = tokenStrategyContracts[tokenId];
-        require(address(strategy) != address(0), "Strategy contract not set");
-        require(
-            strategy.canTransfer(from, to, tokenId, 1),
-            "Transfer not allowed by strategy"
-        );
-        super.transferFrom(from, to, tokenId);
-    }
-
-    /**
-     * @dev Override the safe transfer function to enforce transfer strategies
-     */
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes memory data
-    ) public virtual override(ERC721, IERC721) {
-        ITransferStrategy strategy = tokenStrategyContracts[tokenId];
-        require(address(strategy) != address(0), "Strategy contract not set");
-        require(
-            strategy.canTransfer(from, to, tokenId, 1),
-            "Transfer not allowed by strategy"
-        );
-        super.safeTransferFrom(from, to, tokenId, data);
+        transferWithStrategy(from, to, tokenId);
     }
 } 

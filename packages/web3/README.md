@@ -188,3 +188,108 @@ npx hardhat ignition deploy ./ignition/modules/NFTickets.ts
 3. **TokenStrategySet**
    - Records strategy assignments
    - Includes token ID, strategy ID, and initialization data
+
+# NFTickets Smart Contract Performance Testing
+
+This directory contains the smart contracts and testing infrastructure for the NFTickets system, which implements both ERC-721 and ERC-1155 standards for event ticketing.
+
+## Performance Testing Suite
+
+The testing suite is designed to evaluate and compare the performance, efficiency, and reliability of both NFT standards in the context of event ticketing. It provides comprehensive metrics for making informed decisions about which standard to use for different types of events.
+
+### Test Categories
+
+1. **Gas Cost Analysis**
+   - Deployment costs
+   - Minting costs (single and batch operations)
+   - Transfer costs
+   - Strategy implementation costs
+
+2. **Load Testing**
+   - Concurrent minting operations
+   - Authentication performance
+   - System behavior under high load
+
+3. **Reliability Metrics**
+   - Transaction success rates
+   - Error handling robustness
+   - Edge case management
+
+### Running the Tests
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Run the performance test suite:
+   ```bash
+   npx ts-node scripts/run-performance-tests.ts
+   ```
+
+The script will:
+- Execute all performance tests
+- Collect and analyze results
+- Generate a comprehensive report in the `reports` directory
+
+### Understanding the Results
+
+The generated report includes:
+
+1. **Executive Summary**
+   - Overview of test results
+   - Key findings and recommendations
+
+2. **Detailed Metrics**
+   - Gas costs for various operations
+   - Performance under load
+   - Success rates and error handling statistics
+
+3. **Comparative Analysis**
+   - ERC-721 vs ERC-1155 comparison
+   - Recommendations for different use cases
+
+### Test Configuration
+
+You can modify test parameters in `test/NFTicketPerformance.test.ts`:
+
+- `BATCH_SIZES`: Array of batch sizes to test
+- `NUM_ITERATIONS`: Number of times to repeat each test
+- `LOAD_TEST_USERS`: Number of concurrent users for load testing
+
+### Report Location
+
+Performance test reports are generated in the `reports` directory with the filename format:
+```
+performance_report_YYYY-MM-DD.md
+```
+
+### Interpreting Results
+
+1. **Gas Costs**
+   - Lower is better
+   - Compare relative costs between standards
+   - Consider the impact of batch operations
+
+2. **Load Testing**
+   - Look for consistent performance under load
+   - Check for any failures or timeouts
+   - Compare response times between standards
+
+3. **Reliability**
+   - Success rates should be close to 100%
+   - Error handling should be consistent
+   - Edge cases should be properly managed
+
+## Contributing
+
+When adding new tests or modifying existing ones:
+
+1. Follow the existing test structure
+2. Update the README if adding new test categories
+3. Ensure backward compatibility with existing reports
+4. Add appropriate documentation for new metrics
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
