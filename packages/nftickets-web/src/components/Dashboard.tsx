@@ -240,33 +240,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
       )}
 
       {/* Overview Cards */}
-      <div className="overview-cards">
-        <div className="stat-card">
-          <div className="stat-icon">
+        <div className="overview-cards">
+          <div className="stat-card">
+            <div className="stat-icon">
             <Ticket size={24} />
+            </div>
+            <div className="stat-content">
+              <h3>{totalStats.totalTickets}</h3>
+              <p>Total Tickets</p>
+            </div>
           </div>
-          <div className="stat-content">
-            <h3>{totalStats.totalTickets}</h3>
-            <p>Total Tickets</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
+          <div className="stat-card">
+            <div className="stat-icon">
             <Users size={24} />
+            </div>
+            <div className="stat-content">
+              <h3>{totalStats.usedTickets}</h3>
+              <p>Tickets Used</p>
+            </div>
           </div>
-          <div className="stat-content">
-            <h3>{totalStats.usedTickets}</h3>
-            <p>Tickets Used</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">
+          <div className="stat-card">
+            <div className="stat-icon">
             <Calendar size={24} />
-          </div>
-          <div className="stat-content">
-            <h3>{totalStats.totalEvents}</h3>
-            <p>Total Events</p>
-          </div>
+            </div>
+            <div className="stat-content">
+              <h3>{totalStats.totalEvents}</h3>
+              <p>Total Events</p>
+            </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">
@@ -281,30 +281,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
 
       {/* Analytics Charts */}
       {dashboardAnalytics && (
-        <div className="charts-grid">
+          <div className="charts-grid">
           {/* Daily Activity Chart */}
-          <div className="chart-card">
-            <div className="chart-header">
+            <div className="chart-card">
+              <div className="chart-header">
               <h3>
                 <TrendingUp size={20} />
                 Daily Activity
               </h3>
-            </div>
-            <div className="chart-content">
+              </div>
+              <div className="chart-content">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={dashboardAnalytics.dailyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                  <XAxis 
+                    <XAxis 
                     dataKey="date" 
                     stroke="#94A3B8"
                     tick={{ fill: '#94A3B8' }}
                     tickFormatter={formatArgentinaDate}
-                  />
+                    />
                   <YAxis 
                     stroke="#94A3B8"
                     tick={{ fill: '#94A3B8' }}
                   />
-                  <Tooltip 
+                    <Tooltip 
                     contentStyle={{
                       background: 'rgba(30, 41, 59, 0.9)',
                       border: '1px solid rgba(255,255,255,0.1)',
@@ -312,42 +312,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                       color: '#fff'
                     }}
                     labelFormatter={formatArgentinaDate}
-                  />
-                  <Legend />
+                    />
+                    <Legend />
                   <Line type="monotone" dataKey="successful" stroke="#10b981" activeDot={{ r: 8 }} />
                   <Line type="monotone" dataKey="failed" stroke="#ef4444" activeDot={{ r: 8 }} />
                 </LineChart>
-              </ResponsiveContainer>
+                </ResponsiveContainer>
+              </div>
             </div>
-          </div>
 
           {/* Scan Distribution Pie Chart */}
-          <div className="chart-card">
-            <div className="chart-header">
+            <div className="chart-card">
+              <div className="chart-header">
               <h3>
                 <PieChartIcon size={20} />
                 Scan Distribution
               </h3>
-            </div>
-            <div className="chart-content">
+              </div>
+              <div className="chart-content">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Successful', value: dashboardAnalytics.successfulScans },
-                      { name: 'Failed', value: dashboardAnalytics.failedScans }
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Successful', value: dashboardAnalytics.successfulScans },
+                        { name: 'Failed', value: dashboardAnalytics.failedScans }
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
                     outerRadius={80}
                     paddingAngle={5}
-                    dataKey="value"
+                      dataKey="value"
                     label
-                  >
-                    <Cell fill="#10b981" />
-                    <Cell fill="#ef4444" />
-                  </Pie>
+                    >
+                      <Cell fill="#10b981" />
+                      <Cell fill="#ef4444" />
+                    </Pie>
                   <Tooltip 
                     contentStyle={{
                       background: 'rgba(30, 41, 59, 0.9)',
@@ -356,10 +356,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ walletAddress, apiKey }) =
                       color: '#fff'
                     }}
                   />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
           </div>
 
           {/* Peak Hours Chart */}
