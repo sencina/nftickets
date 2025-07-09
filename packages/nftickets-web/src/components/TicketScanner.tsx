@@ -68,6 +68,37 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
     const items = event.clipboardData?.items;
     if (!items) return;
 
+    // First check for text data (QR code data)
+    for (const item of items) {
+      if (item.type === 'text/plain') {
+        event.preventDefault();
+        setIsPasting(true);
+        setError(null);
+        
+        try {
+          const text = await new Promise<string>((resolve) => {
+            item.getAsString(resolve);
+          });
+          
+          // Check if this looks like encrypted QR data
+          if (text.trim().length > 50) {
+            console.log('Pasted QR data:', text.trim());
+            setQrData(text.trim());
+            setError(null);
+          } else {
+            setError('Pasted text does not appear to be valid QR code data.');
+          }
+        } catch (error) {
+          console.error('Error processing pasted text:', error);
+          setError('Failed to process pasted text. Please try again.');
+        } finally {
+          setIsPasting(false);
+        }
+        return;
+      }
+    }
+
+    // If no text found, check for images
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         event.preventDefault();
@@ -150,7 +181,7 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
     <div className="ticket-scanner">
       <div className="scanner-header">
         <h2>Ticket Scanner</h2>
-        <p>Upload or paste a ticket QR code image to verify its authenticity</p>
+        <p>Upload a QR code image, paste QR code data, or paste an image to verify ticket authenticity</p>
       </div>
 
       <div className="scanner-content">
@@ -173,8 +204,8 @@ const TicketScanner: React.FC<TicketScannerProps> = ({ apiKey, walletAddress }) 
                 Upload QR Image
               </button>
               <div className="paste-instruction">
-                <p>or press {navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V'} to paste an image</p>
-                {isPasting && <span className="pasting-indicator">Processing pasted image...</span>}
+                <p>or press {navigator.platform.includes('Mac') ? '⌘V' : 'Ctrl+V'} to paste QR data or image</p>
+                {isPasting && <span className="pasting-indicator">Processing pasted content...</span>}
               </div>
             </div>
           </div>

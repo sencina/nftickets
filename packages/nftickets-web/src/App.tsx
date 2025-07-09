@@ -5,10 +5,11 @@ import SignatureGenerator from './modules/auth/components/SignatureGenerator';
 import ApiKeyGenerator from './modules/auth/components/ApiKeyGenerator';
 import { Dashboard } from './components/Dashboard';
 import EventCreator from './components/EventCreator';
+import UserNFTs from './components/UserNFTs';
 import WebGLBackground from './modules/background/WebGLBackground';
 import ParticleAnimation from './modules/animations/ParticleAnimation';
 import FloatingTicket from './modules/animations/FloatingTicket';
-import { LogOut, Plus, BarChart3 } from 'lucide-react';
+import { LogOut, Plus, BarChart3, Wallet } from 'lucide-react';
 import './modules/auth/components/AuthContainer.css';
 import './App.css';
 
@@ -33,7 +34,7 @@ function App() {
   const [animatingStep, setAnimatingStep] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [webGLSupported, setWebGLSupported] = useState(true);
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'create'>('dashboard');
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'create' | 'nfts'>('dashboard');
   const [showEventCreator, setShowEventCreator] = useState(false);
 
   // Check WebGL support and screen size on component mount
@@ -269,6 +270,13 @@ function App() {
           Dashboard
         </button>
         <button 
+          className={`nav-btn ${currentPage === 'nfts' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('nfts')}
+        >
+          <Wallet size={18} />
+          My NFTs
+        </button>
+        <button 
           className="nav-btn create-btn"
           onClick={() => setShowEventCreator(true)}
         >
@@ -290,6 +298,9 @@ function App() {
       <main className="main-content">
         {currentPage === 'dashboard' && walletAddress && (
           <Dashboard apiKey={apiKey} walletAddress={walletAddress} />
+        )}
+        {currentPage === 'nfts' && walletAddress && (
+          <UserNFTs apiKey={apiKey} walletAddress={walletAddress} />
         )}
       </main>
       

@@ -616,6 +616,50 @@ eventRouter.get('/creator/:creatorAddress/events', async (req, res) => {
   }
 });
 
+// Get user's NFTs across all events
+eventRouter.get('/user/nfts', apiKeyAuth, async (req, res) => {
+  try {
+    const walletAddress = req.walletAddress as string;
+
+    const userNFTs = await service.getUserNFTs(walletAddress);
+
+    res.status(httpStatus.OK).json({
+      success: true,
+      nfts: userNFTs,
+      total: userNFTs.length,
+    });
+  } catch (error) {
+    console.error('Error getting user NFTs:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to get user NFTs',
+    });
+  }
+});
+
+// Get user's NFTs for a specific event (faster than getting all NFTs)
+eventRouter.get('/:eventId/user/nfts', apiKeyAuth, async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const walletAddress = req.walletAddress as string;
+
+    const eventNFTs = await service.getEventNFTs(eventId, walletAddress);
+
+    res.status(httpStatus.OK).json({
+      success: true,
+      nfts: eventNFTs,
+      total: eventNFTs.length,
+      eventId: eventId,
+    });
+  } catch (error) {
+    console.error('Error getting event NFTs:', error);
+    res.status(httpStatus.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to get event NFTs',
+    });
+  }
+});
+
 // Get creator statistics for a specific creator (public endpoint)
 eventRouter.get('/creator/:creatorAddress/stats', async (req, res) => {
   try {

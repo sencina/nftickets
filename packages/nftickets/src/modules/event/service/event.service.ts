@@ -4,7 +4,7 @@ import { WALLET_PRIVATE_KEY } from '@env';
 import { PROVIDER } from '@modules/nft/utils/provider';
 import { Deployer } from '@modules/nft/service/deployer/deployer.impl';
 import { uploadMetadata, uploadToIPFS } from '@modules/image/ipfs';
-import { BUCKET_URL, IPFS_GATEWAY_URL } from '@modules/image/utils/constants';
+import { BUCKET_URL, IPFS_GATEWAY_URL, IPFS_GATEWAY_URLS } from '@modules/image/utils/constants';
 import { generateImage } from '@modules/image/image.generator';
 import { Contract } from 'ethers';
 import {
@@ -464,6 +464,591 @@ export class EventService {
   async getAllEvents(): Promise<EventDTO[]> {
     const result = await this.repository.findAll(1, 1000); // Get first 1000 events
     return result.events;
+  }
+
+  /**
+   * Get user's NFTs across all events
+   * @param walletAddress The wallet address to get NFTs for
+   * @returns Array of NFT tickets with metadata and QR codes
+   */
+  async getUserNFTs(walletAddress: string): Promise<
+    Array<{
+      tokenId: string;
+      contractAddress: string;
+      eventId: string;
+      eventName: string;
+      sectorName: string;
+      sectorId: number;
+      isUsed: boolean;
+      usedAt?: Date;
+      qrCodeData: string;
+      metadata?: {
+        name: string;
+        description: string;
+        image: string;
+      };
+    }>
+  > {
+    try {
+      // Get all events to check contracts
+      const events = await this.getAllEvents();
+      const userNFTs: Array<any> = [];
+
+      // Process events sequentially to avoid rate limiting
+      for (const event of events) {
+        const eventNFTs: Array<any> = [];
+
+        try {
+          const contractType = event.contractType || DEFAULT_CONTRACT;
+          const contract = this.getContractWithServerWallet(event.address, contractType);
+
+          // For NFT721, we need to check token ownership
+          if (contractType === 'NFTicket721') {
+            try {
+              // Get the current token count with a single call
+              const currentIdBigInt = await this.retryBlockchainCall(() => contract.getCurrentId());
+              const currentId = Number(currentIdBigInt);
+
+              // Limit to reasonable number of tokens to check (performance optimization)
+              const maxTokensToCheck = Math.min(currentId, 100); // Reduced from 1000 to 100
+
+              console.log(`Checking ${maxTokensToCheck} tokens for contract ${event.address}`);
+
+              // Check tokens sequentially in smaller batches to avoid rate limiting
+              const batchSize = 5; // Reduced from 10 to 5
+              for (let i = 0; i < maxTokensToCheck; i += batchSize) {
+                const batch: Promise<any>[] = [];
+                for (let tokenId = i; tokenId < Math.min(i + batchSize, maxTokensToCheck); tokenId++) {
+                  batch.push(this.checkNFT721Token(contract, tokenId, event, walletAddress));
+                }
+
+                const batchResults = await Promise.allSettled(batch);
+                for (const result of batchResults) {
+                  if (result.status === 'fulfilled' && result.value) {
+                    eventNFTs.push(result.value);
+                  }
+                }
+
+                // Add delay between batches to avoid rate limiting
+                if (i + batchSize < maxTokensToCheck) {
+                  await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
+                }
+              }
+            } catch (error) {
+              console.error(`Error checking contract ${event.address}:`, error);
+            }
+          }
+
+          // For NFT1155, we need to check balance
+          if (contractType === 'NFTicket1155') {
+            try {
+              // Check balance for each sector sequentially to avoid rate limiting
+              for (const sector of event.sectors || []) {
+                try {
+                  const result = await this.checkNFT1155Sector(contract, sector, event, walletAddress);
+                  if (result) {
+                    eventNFTs.push(result);
+                  }
+
+                  // Add small delay between sector checks
+                  await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms delay
+                } catch (error) {
+                  console.error(`Error checking sector ${sector.contractSectorId}:`, error);
+                }
+              }
+            } catch (error) {
+              console.error(`Error checking 1155 contract ${event.address}:`, error);
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing event ${event.id}:`, error);
+        }
+
+        userNFTs.push(...eventNFTs);
+
+        // Add delay between events to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 200)); // 200ms delay
+      }
+
+      return userNFTs;
+    } catch (error) {
+      console.error('Error getting user NFTs:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user's NFTs for a specific event
+   */
+  async getEventNFTs(
+    eventId: string,
+    walletAddress: string
+  ): Promise<
+    Array<{
+      tokenId: string;
+      contractAddress: string;
+      eventId: string;
+      eventName: string;
+      sectorName: string;
+      sectorId: number;
+      isUsed: boolean;
+      usedAt?: Date;
+      qrCodeData: string;
+      metadata?: {
+        name: string;
+        description: string;
+        image: string;
+      };
+    }>
+  > {
+    try {
+      // Get the specific event
+      const event = await this.getEventById(eventId);
+      if (!event) {
+        throw new Error(`Event with ID ${eventId} not found`);
+      }
+
+      const eventNFTs: Array<any> = [];
+
+      try {
+        const contractType = event.contractType || DEFAULT_CONTRACT;
+        const contract = this.getContractWithServerWallet(event.address, contractType);
+
+        // For NFT721, we need to check token ownership
+        if (contractType === 'NFTicket721') {
+          try {
+            // Get the current token count with a single call
+            const currentIdBigInt = await this.retryBlockchainCall(() => contract.getCurrentId());
+            const currentId = Number(currentIdBigInt);
+
+            // Limit to reasonable number of tokens to check (performance optimization)
+            const maxTokensToCheck = Math.min(currentId, 100);
+
+            console.log(`Checking ${maxTokensToCheck} tokens for event ${eventId} contract ${event.address}`);
+
+            // Check tokens sequentially in smaller batches to avoid rate limiting
+            const batchSize = 5;
+            for (let i = 0; i < maxTokensToCheck; i += batchSize) {
+              const batch: Promise<any>[] = [];
+              for (let tokenId = i; tokenId < Math.min(i + batchSize, maxTokensToCheck); tokenId++) {
+                batch.push(this.checkNFT721Token(contract, tokenId, event, walletAddress));
+              }
+
+              const batchResults = await Promise.allSettled(batch);
+              for (const result of batchResults) {
+                if (result.status === 'fulfilled' && result.value) {
+                  eventNFTs.push(result.value);
+                }
+              }
+
+              // Add delay between batches to avoid rate limiting
+              if (i + batchSize < maxTokensToCheck) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              }
+            }
+          } catch (error) {
+            console.error(`Error checking contract ${event.address}:`, error);
+          }
+        }
+
+        // For NFT1155, we need to check balance
+        if (contractType === 'NFTicket1155') {
+          try {
+            // Check balance for each sector sequentially to avoid rate limiting
+            for (const sector of event.sectors || []) {
+              try {
+                const result = await this.checkNFT1155Sector(contract, sector, event, walletAddress);
+                if (result) {
+                  eventNFTs.push(result);
+                }
+
+                // Add small delay between sector checks
+                await new Promise((resolve) => setTimeout(resolve, 50));
+              } catch (error) {
+                console.error(`Error checking sector ${sector.contractSectorId}:`, error);
+              }
+            }
+          } catch (error) {
+            console.error(`Error checking 1155 contract ${event.address}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing event ${event.id}:`, error);
+      }
+
+      return eventNFTs;
+    } catch (error) {
+      console.error('Error getting event NFTs:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Convert IPFS URL to HTTP gateway URL
+   */
+  private convertIPFSToHTTP(url: string, gatewayUrl: string = IPFS_GATEWAY_URL): string {
+    if (url.startsWith('ipfs://')) {
+      const hash = url.replace('ipfs://', '');
+      return `${gatewayUrl}${hash}`;
+    }
+    return url;
+  }
+
+  /**
+   * Robustly fetch metadata from a token URI, handling multiple gateways and fallback
+   */
+  private async fetchMetadata(tokenURI: string): Promise<any> {
+    // If it's not an IPFS URL, try fetching directly
+    if (!tokenURI.startsWith('ipfs://')) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const response = await fetch(tokenURI, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const metadata = await response.json();
+          console.log(`Successfully fetched metadata from ${tokenURI}`);
+          return metadata;
+        }
+      } catch (error: any) {
+        console.warn(`Error fetching metadata from ${tokenURI}:`, error);
+      }
+    }
+
+    // For IPFS URLs, try multiple gateways
+    const gatewayUrls = [...IPFS_GATEWAY_URLS];
+    let lastError: Error | null = null;
+
+    for (const gatewayUrl of gatewayUrls) {
+      try {
+        const httpUri = this.convertIPFSToHTTP(tokenURI, gatewayUrl);
+        console.log(`Trying to fetch metadata from: ${httpUri}`);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const response = await fetch(httpUri, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const metadata = await response.json();
+          console.log(`Successfully fetched metadata from ${httpUri}`);
+
+          // Convert image URL if it's IPFS
+          if (metadata.image) {
+            metadata.image = this.convertIPFSToHTTP(metadata.image, gatewayUrl);
+          }
+
+          return metadata;
+        } else {
+          console.warn(`Failed to fetch metadata from ${httpUri}. Status: ${response.status}`);
+          lastError = new Error(`HTTP ${response.status} from ${httpUri}`);
+        }
+      } catch (error: any) {
+        console.warn(`Error fetching metadata from ${gatewayUrl}:`, error.message);
+        lastError = error;
+
+        // Add delay between gateway attempts to avoid overwhelming
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    throw lastError || new Error(`Failed to fetch metadata from any gateway for URI: ${tokenURI}`);
+  }
+
+  /**
+   * Retry a blockchain call with exponential backoff for rate limiting
+   */
+  private async retryBlockchainCall<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        // Check if it's a rate limiting error
+        const isRateLimit = error.code === 'BAD_DATA' && error.value && error.value.some((v: any) => v.code === -32005);
+
+        if (isRateLimit && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+          console.warn(`Rate limit hit, retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new Error('Max retries exceeded');
+  }
+
+  /**
+   * Check a single NFT721 token for ownership
+   */
+  private async checkNFT721Token(
+    contract: any,
+    tokenId: number,
+    event: any,
+    walletAddress: string
+  ): Promise<any | null> {
+    try {
+      // First check ownership - if not owned, skip all other calls
+      const owner = (await this.retryBlockchainCall(() => contract.ownerOf(tokenId))) as string;
+
+      if (owner.toLowerCase() !== walletAddress.toLowerCase()) {
+        return null;
+      }
+
+      // Token is owned by the user, now get additional information
+      let metadata;
+      let sectorId = 0;
+      let sectorName = 'Unknown Sector';
+      let isUsed = false;
+
+      // Batch the remaining blockchain calls to reduce total requests
+      const promises: Promise<void>[] = [];
+
+      // Get token metadata
+      promises.push(
+        (async () => {
+          try {
+            const tokenURI = (await this.retryBlockchainCall(() => contract.tokenURI(tokenId))) as string;
+            console.log(`Fetching metadata for token ${tokenId} from URI: ${tokenURI}`);
+
+            metadata = await this.fetchMetadata(tokenURI);
+            console.log(`Successfully fetched metadata for token ${tokenId}:`, metadata);
+          } catch (error) {
+            console.error(`Error fetching metadata for token ${tokenId}:`, error);
+          }
+        })()
+      );
+
+      // Get sector information
+      promises.push(
+        (async () => {
+          try {
+            if (contract.getSectorByToken) {
+              const sectorIdBigInt = await this.retryBlockchainCall(() => contract.getSectorByToken(tokenId));
+              sectorId = Number(sectorIdBigInt);
+            }
+
+            // Look for sector by contractSectorId (DTO property name)
+            const sector = event.sectors?.find((s: any) => s.contractSectorId === sectorId);
+            if (sector && sector.name) {
+              sectorName = sector.name;
+            }
+          } catch (error) {
+            console.error(`Error getting sector info for token ${tokenId}:`, error);
+          }
+        })()
+      );
+
+      // Check if token is used
+      promises.push(
+        (async () => {
+          try {
+            isUsed = (await this.retryBlockchainCall(() => contract.isTokenUsed(tokenId))) as boolean;
+          } catch (error) {
+            console.error(`Error checking token usage for token ${tokenId}:`, error);
+          }
+        })()
+      );
+
+      // Wait for all blockchain calls to complete
+      await Promise.allSettled(promises);
+
+      // Get ticket from database for additional info
+      const ticket = await this.ticketRepository.findByContractTokenId(tokenId.toString());
+
+      // Generate QR code data
+      const qrCodeData = this.generateQRCodeData({
+        tokenId: tokenId.toString(),
+        contractAddress: event.address,
+        eventId: event.id,
+        eventName: event.name,
+        sectorName,
+        sectorId,
+        ticketOwner: walletAddress,
+        timestamp: Date.now(),
+        ticketId: ticket?.id,
+      });
+
+      return {
+        tokenId: tokenId.toString(),
+        contractAddress: event.address,
+        eventId: event.id,
+        eventName: event.name,
+        sectorName,
+        sectorId,
+        isUsed,
+        usedAt: ticket?.used_at,
+        qrCodeData,
+        metadata,
+      };
+    } catch (error: any) {
+      // Handle rate limiting errors specifically
+      if (error.code === 'BAD_DATA' && error.value && error.value.some((v: any) => v.code === -32005)) {
+        console.warn(`Rate limit hit for token ${tokenId}, skipping...`);
+        return null;
+      }
+
+      // Token might not exist or other error
+      console.error(`Error checking token ${tokenId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Check a single NFT1155 sector for balance
+   */
+  private async checkNFT1155Sector(contract: any, sector: any, event: any, walletAddress: string): Promise<any | null> {
+    try {
+      // Skip if sector doesn't have contractSectorId
+      if (sector.contractSectorId === undefined || sector.contractSectorId === null) {
+        return null;
+      }
+
+      // First check balance - if zero, skip all other calls
+      const balanceBigInt = await this.retryBlockchainCall(() =>
+        contract.balanceOf(walletAddress, sector.contractSectorId)
+      );
+      const balance = Number(balanceBigInt);
+
+      if (balance === 0) {
+        return null;
+      }
+
+      // User has tokens in this sector, get additional information
+      let metadata;
+      let isUsed = false;
+
+      // Batch the remaining blockchain calls
+      const promises: Promise<void>[] = [];
+
+      // Get token metadata
+      promises.push(
+        (async () => {
+          try {
+            const tokenURI = (await this.retryBlockchainCall(() => contract.uri(sector.contractSectorId))) as string;
+            console.log(`Fetching metadata for 1155 token ${sector.contractSectorId} from URI: ${tokenURI}`);
+
+            metadata = await this.fetchMetadata(tokenURI);
+            console.log(`Successfully fetched metadata for 1155 token ${sector.contractSectorId}:`, metadata);
+          } catch (error) {
+            console.error(`Error fetching metadata for 1155 token ${sector.contractSectorId}:`, error);
+          }
+        })()
+      );
+
+      // Check if token is used
+      promises.push(
+        (async () => {
+          try {
+            isUsed = (await this.retryBlockchainCall(() => contract.isTokenUsed(sector.contractSectorId))) as boolean;
+          } catch (error) {
+            console.error(`Error checking token usage for 1155 token ${sector.contractSectorId}:`, error);
+          }
+        })()
+      );
+
+      // Wait for all blockchain calls to complete
+      await Promise.allSettled(promises);
+
+      // Get ticket from database for additional info
+      const ticket = await this.ticketRepository.findByContractTokenId(sector.contractSectorId.toString());
+
+      // Generate QR code data
+      const qrCodeData = this.generateQRCodeData({
+        tokenId: sector.contractSectorId.toString(),
+        contractAddress: event.address,
+        eventId: event.id,
+        eventName: event.name,
+        sectorName: sector.name || 'Unknown Sector',
+        sectorId: sector.contractSectorId,
+        ticketOwner: walletAddress,
+        timestamp: Date.now(),
+        ticketId: ticket?.id,
+      });
+
+      return {
+        tokenId: sector.contractSectorId.toString(),
+        contractAddress: event.address,
+        eventId: event.id,
+        eventName: event.name,
+        sectorName: sector.name || 'Unknown Sector',
+        sectorId: sector.contractSectorId,
+        isUsed,
+        usedAt: ticket?.used_at,
+        qrCodeData,
+        metadata,
+      };
+    } catch (error: any) {
+      // Handle rate limiting errors specifically
+      if (error.code === 'BAD_DATA' && error.value && error.value.some((v: any) => v.code === -32005)) {
+        console.warn(`Rate limit hit for sector ${sector.contractSectorId}, skipping...`);
+        return null;
+      }
+
+      console.error(`Error checking sector ${sector.contractSectorId || 'unknown'}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate QR code data for a ticket
+   */
+  private generateQRCodeData(data: {
+    tokenId: string;
+    contractAddress: string;
+    eventId: string;
+    eventName: string;
+    sectorName: string;
+    sectorId: number;
+    ticketOwner: string;
+    timestamp: number;
+    ticketId?: string;
+  }): string {
+    try {
+      // Create the QR code data object
+      const qrCodeData = {
+        tokenId: data.tokenId,
+        contractAddress: data.contractAddress,
+        eventId: data.eventId,
+        eventName: data.eventName,
+        sectorName: data.sectorName,
+        sectorId: data.sectorId,
+        ticketOwner: data.ticketOwner,
+        timestamp: data.timestamp,
+        ticketId: data.ticketId,
+      };
+
+      // Generate server signature
+      const message = `Verify ticket:\nToken ID: ${data.tokenId}\nContract: ${data.contractAddress}\nEvent: ${data.eventId}\nEvent Name: ${data.eventName}\nSector: ${data.sectorName}\nSector ID: ${data.sectorId}\nOwner: ${data.ticketOwner}\nTimestamp: ${data.timestamp}`;
+
+      const serverWallet = new Wallet(WALLET_PRIVATE_KEY as string);
+      const signature = serverWallet.signMessageSync(message);
+
+      // Add signature to QR data
+      const signedQRData = {
+        ...qrCodeData,
+        signature,
+      };
+
+      // Encrypt the QR data
+      return encryptQRData(signedQRData);
+    } catch (error) {
+      console.error('Error generating QR code data:', error);
+      return '';
+    }
   }
 
   /**
