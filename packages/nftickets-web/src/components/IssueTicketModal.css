@@ -11,6 +11,7 @@
   z-index: 1000;
   backdrop-filter: blur(4px);
   padding: 1rem;
+  overflow-y: auto;
 }
 
 .modal-container {
@@ -19,9 +20,13 @@
   border-radius: 1rem;
   width: 90%;
   max-width: 500px;
+  max-height: 90vh;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  margin: auto;
 }
 
 .modal-header {
@@ -30,6 +35,7 @@
   align-items: center;
   padding: 2rem;
   position: relative;
+  flex-shrink: 0;
 }
 
 .header-content {
@@ -81,6 +87,9 @@
 
 .modal-content {
   padding: 0 2rem 2rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .form-group {
@@ -311,8 +320,9 @@
 }
 
 .modal-content.success {
-  padding: 2rem;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .success-header {
@@ -395,6 +405,112 @@
 .copy-button svg {
   width: 16px;
   height: 16px;
+  transition: transform 0.2s ease;
+}
+
+/* QR Code Section Styles */
+.qr-section {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+}
+
+.qr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.qr-header label {
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.toggle-qr-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 0.5rem;
+  color: #3b82f6;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-qr-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.qr-data {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.qr-textarea {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: white;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.4;
+}
+
+.qr-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.copy-qr-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+}
+
+.copy-qr-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.qr-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: 0.75rem;
+  background: rgba(59, 130, 246, 0.05);
+  border-left: 3px solid #3b82f6;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.modal-actions {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
 }
 
 @keyframes spin {
@@ -438,16 +554,47 @@
 }
 
 @media (max-width: 640px) {
+  .modal-overlay {
+    padding: 0.5rem;
+    align-items: flex-start;
+    padding-top: 2rem;
+  }
+
   .modal-container {
     width: 95%;
-    margin: 1rem;
+    max-width: none;
+    max-height: 95vh;
+    margin: 0;
+  }
+
+  .modal-header {
+    padding: 1.5rem;
   }
 
   .modal-content {
-    padding: 1rem;
+    padding: 0 1.5rem 1.5rem;
   }
 
   .copy-field span {
     font-size: 0.75rem;
+  }
+
+  .qr-section {
+    padding: 1rem;
+    margin-top: 1rem;
+  }
+
+  .qr-textarea {
+    font-size: 0.7rem;
+    min-height: 100px;
+    padding: 0.75rem;
+  }
+
+  .success-header h3 {
+    font-size: 1.5rem;
+  }
+
+  .modal-actions {
+    margin-top: 1rem;
   }
 } 

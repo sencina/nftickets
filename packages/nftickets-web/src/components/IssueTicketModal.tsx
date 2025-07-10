@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Ticket, AlertCircle, Copy, Check } from 'lucide-react';
+import { X, Ticket, AlertCircle, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import './IssueTicketModal.css';
 import type { Event, Sector, TokenResponse } from '../types';
 
@@ -17,6 +17,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
   const [success, setSuccess] = useState(false);
   const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
   const [copyStatus, setCopyStatus] = useState<{ [key: string]: boolean }>({});
+  const [showQRData, setShowQRData] = useState(false);
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -154,6 +155,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
             <div className="success-header">
               <Ticket size={48} />
               <h3>Ticket Issued Successfully!</h3>
+              <p>The ticket has been minted and is now available for the recipient.</p>
             </div>
 
             {tokenData && (
@@ -162,7 +164,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
                   <div className="info-group">
                     <label>Token ID</label>
                     <div className="copy-field">
-                      <span>{tokenData.tokenId}</span>
+                      <span>#{tokenData.tokenId}</span>
                       <button
                         onClick={() => copyToClipboard(tokenData.tokenId.toString(), 'tokenId')}
                         className="copy-button"
@@ -175,7 +177,7 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
                   <div className="info-group">
                     <label>Contract Address</label>
                     <div className="copy-field">
-                      <span>{tokenData.address}</span>
+                      <span>{tokenData.address.slice(0, 6)}...{tokenData.address.slice(-4)}</span>
                       <button
                         onClick={() => copyToClipboard(tokenData.address, 'address')}
                         className="copy-button"
@@ -197,15 +199,76 @@ export const IssueTicketModal: React.FC<IssueTicketModalProps> = ({ event, onClo
                       </button>
                     </div>
                   </div>
+
+                  <div className="info-group">
+                    <label>Recipient Address</label>
+                    <div className="copy-field">
+                      <span>{recipientAddress.slice(0, 6)}...{recipientAddress.slice(-4)}</span>
+                      <button
+                        onClick={() => copyToClipboard(recipientAddress, 'recipient')}
+                        className="copy-button"
+                      >
+                        {copyStatus.recipient ? <Check size={16} /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <button 
-                  onClick={onClose} 
-                  className="submit-button" 
-                  style={{ marginTop: '1rem', background: 'rgba(255, 255, 255, 0.1)' }}
-                >
-                  Close
-                </button>
+                {/* QR Code Section */}
+                <div className="qr-section">
+                  <div className="qr-header">
+                    <label>QR Code Data for Scanner</label>
+                    <button
+                      onClick={() => setShowQRData(!showQRData)}
+                      className="toggle-qr-btn"
+                      type="button"
+                    >
+                      {showQRData ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showQRData ? 'Hide' : 'Show'} QR Data
+                    </button>
+                  </div>
+                  
+                  {showQRData && (
+                    <div className="qr-data">
+                      <textarea
+                        value={tokenData.qrCodeData}
+                        readOnly
+                        className="qr-textarea"
+                        rows={6}
+                        placeholder="QR Code data will appear here..."
+                      />
+                      <button
+                        onClick={() => copyToClipboard(tokenData.qrCodeData, 'qrData')}
+                        className="copy-qr-btn"
+                        type="button"
+                      >
+                        {copyStatus.qrData ? (
+                          <>
+                            <Check size={16} />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={16} />
+                            Copy QR Data
+                          </>
+                        )}
+                      </button>
+                      <p className="qr-note">
+                        💡 This QR code contains encrypted ticket data that can be scanned at the event entrance.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="modal-actions">
+                  <button 
+                    onClick={onClose} 
+                    className="submit-button" 
+                  >
+                    Close
+                  </button>
+                </div>
               </>
             )}
           </div>
